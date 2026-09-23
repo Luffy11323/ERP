@@ -1,1 +1,4 @@
 Akatech ERP
+Sales Department
+Procurement Department
+Inventory Department
