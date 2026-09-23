@@ -1,0 +1,20 @@
+[
+  {
+    "doctype": "Module Def",
+    "module_name": "Sales Department",
+    "app_name": "akatech_erp",
+    "custom": 1
+  },
+  {
+    "doctype": "Module Def",
+    "module_name": "Procurement Department",
+    "app_name": "akatech_erp",
+    "custom": 1
+  },
+  {
+    "doctype": "Module Def",
+    "module_name": "Inventory Department",
+    "app_name": "akatech_erp",
+    "custom": 1
+  }
+]

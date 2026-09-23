@@ -253,3 +253,19 @@ app_license = "mit"
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
 
+
+# Fixtures — exported from live site
+fixtures = [
+    {
+        "doctype": "Module Def",
+        "filters": [
+            ["name", "in", ["Sales Department", "Procurement Department", "Inventory Department"]]
+        ]
+    },
+    {
+        "doctype": "Workspace",
+        "filters": [
+            ["name", "in", ["Sales Department", "Procurement Department", "Inventory Department"]]
+        ]
+    }
+]
