@@ -2,3 +2,10 @@ Akatech ERP
 Sales Department
 Procurement Department
 Inventory Department
+AKA Buying
+AKA Selling
+Loan Management
+AKA HR
+Havenir Tools
+AKA Payroll
+AKA STOCK

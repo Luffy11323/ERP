@@ -1,0 +1,64 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-10-05 06:57:42.618710",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_rf5r",
+  "leave_manager_role",
+  "advance_manager_role"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_rf5r",
+   "fieldtype": "Section Break"
+  },
+  {
+   "description": "This role will be able to view all leave applications other that restricted via user permission",
+   "fieldname": "leave_manager_role",
+   "fieldtype": "Link",
+   "label": "Leave Manager Role",
+   "options": "Role"
+  },
+  {
+   "description": "This role will be able to view all advance applications other that restricted via user permission",
+   "fieldname": "advance_manager_role",
+   "fieldtype": "Link",
+   "label": "Advance Manager Role",
+   "options": "Role"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-10-05 06:57:42.618710",
+ "modified_by": "Administrator",
+ "module": "AKA HR",
+ "name": "AKA HR Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Employee",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

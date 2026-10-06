@@ -1,0 +1,94 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-10-05 05:18:40.490539",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "allow",
+  "for_value",
+  "values",
+  "column_break_5",
+  "is_default",
+  "apply_to_all_doctypes",
+  "applicable_for",
+  "applicable_for_values",
+  "hide_descendants"
+ ],
+ "fields": [
+  {
+   "fieldname": "allow",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Allow",
+   "options": "DocType",
+   "reqd": 1
+  },
+  {
+   "fieldname": "for_value",
+   "fieldtype": "Dynamic Link",
+   "ignore_user_permissions": 1,
+   "label": "For Value",
+   "mandatory_depends_on": "eval:!doc.values",
+   "options": "allow"
+  },
+  {
+   "fieldname": "values",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Values"
+  },
+  {
+   "fieldname": "column_break_5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_default",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Default"
+  },
+  {
+   "default": "1",
+   "fieldname": "apply_to_all_doctypes",
+   "fieldtype": "Check",
+   "label": "Apply To All Document Types"
+  },
+  {
+   "depends_on": "eval:!doc.apply_to_all_doctypes",
+   "fieldname": "applicable_for",
+   "fieldtype": "Link",
+   "label": "Applicable For",
+   "mandatory_depends_on": "eval:!doc.applicable_for_values && !doc.apply_to_all_doctypes",
+   "options": "DocType"
+  },
+  {
+   "depends_on": "eval:!doc.apply_to_all_doctypes",
+   "fieldname": "applicable_for_values",
+   "fieldtype": "Small Text",
+   "label": "Applicable For Values",
+   "mandatory_depends_on": "eval:!doc.apply_to_all_doctypes"
+  },
+  {
+   "default": "0",
+   "fieldname": "hide_descendants",
+   "fieldtype": "Check",
+   "label": "Hide Descendants"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-05 05:18:40.490539",
+ "modified_by": "Administrator",
+ "module": "Havenir Tools",
+ "name": "User Permission Tool Table",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

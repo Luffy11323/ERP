@@ -1,0 +1,470 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-10-05 06:57:46.980590",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_xjoo",
+  "project",
+  "project_name",
+  "project_type",
+  "sla_scope",
+  "sla_category",
+  "currency",
+  "column_break_ulbq",
+  "posting_date",
+  "naming_series",
+  "amended_from",
+  "company",
+  "status",
+  "customer",
+  "customer_name",
+  "section_break_mvry",
+  "item_code",
+  "item_name",
+  "qty",
+  "column_break_culq",
+  "model",
+  "brand",
+  "country_of_origin",
+  "section_break_whfx",
+  "foreign_currency",
+  "vendor_incoterm",
+  "quoted_rate",
+  "quoted_amount",
+  "quoted_amount_in_words",
+  "column_break_ubtr",
+  "company_currency",
+  "company_incoterm",
+  "base_quoted_rate",
+  "base_quoted_amount",
+  "base_quoted_amount_in_words",
+  "section_break_tkew",
+  "subject",
+  "terms",
+  "section_break_kywk",
+  "grand_total",
+  "amount_in_words",
+  "column_break_pmxp",
+  "base_grand_total",
+  "base_amount_in_words",
+  "print_settings_section",
+  "show_percentage",
+  "show_amounts",
+  "hide_financials_in_technical_offer",
+  "references_section",
+  "reference_doctype",
+  "reference_name",
+  "reference_row",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_xjoo",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "project.project_name",
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "project_type",
+   "fieldtype": "Link",
+   "label": "Project Type",
+   "options": "Project Type",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "project.project_scope",
+   "fetch_if_empty": 1,
+   "fieldname": "sla_scope",
+   "fieldtype": "Select",
+   "label": "SLA Scope",
+   "options": "\nParts\nServices\nParts & Services"
+  },
+  {
+   "default": "Single Item",
+   "fieldname": "sla_category",
+   "fieldtype": "Select",
+   "label": "SLA Category",
+   "options": "Single Item\nCollective",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "company.default_currency",
+   "fetch_if_empty": 1,
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "column_break_ulbq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Today",
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "label": "Posting Date",
+   "read_only": 1
+  },
+  {
+   "default": "BSLA-.YYYY.-",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "no_copy": 1,
+   "options": "BSLA-.YYYY.-",
+   "print_hide": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Bid SLA Preparation",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "default": "In Progress",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "no_copy": 1,
+   "options": "In Progress\nUnder Review\nApproved\nRejected\nCancelled",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "project.customer",
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fetch_from": "customer.customer_name",
+   "fieldname": "customer_name",
+   "fieldtype": "Data",
+   "label": "Customer Name",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval: doc.sla_category == \"Single Item\"",
+   "fieldname": "section_break_mvry",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "label": "Product",
+   "mandatory_depends_on": "eval: doc.sla_category == \"Single Item\"",
+   "options": "Item"
+  },
+  {
+   "fetch_from": "item_code.item_name",
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Product Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "label": "Qty"
+  },
+  {
+   "fieldname": "column_break_culq",
+   "fieldtype": "Column Break",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "item_code.model",
+   "fieldname": "model",
+   "fieldtype": "Data",
+   "label": "Model",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "item_code.brand",
+   "fieldname": "brand",
+   "fieldtype": "Link",
+   "label": "Brand",
+   "options": "Brand",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "item_code.country_of_origin",
+   "fieldname": "country_of_origin",
+   "fieldtype": "Link",
+   "label": "Country of Origin",
+   "options": "Country",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_whfx",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "foreign_currency",
+   "fieldtype": "Heading",
+   "label": "Foreign Currency"
+  },
+  {
+   "fieldname": "vendor_incoterm",
+   "fieldtype": "Link",
+   "label": "Vendor Incoterm",
+   "options": "Incoterm"
+  },
+  {
+   "fieldname": "quoted_rate",
+   "fieldtype": "Currency",
+   "label": "Quoted Rate",
+   "options": "currency"
+  },
+  {
+   "fieldname": "quoted_amount",
+   "fieldtype": "Currency",
+   "label": "Quoted Amount",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "quoted_amount_in_words",
+   "fieldtype": "Data",
+   "label": "Amount in Words",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_ubtr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company_currency",
+   "fieldtype": "Heading",
+   "label": "Company Currency"
+  },
+  {
+   "fieldname": "company_incoterm",
+   "fieldtype": "Link",
+   "label": "Company Incoterm",
+   "options": "Incoterm"
+  },
+  {
+   "fieldname": "base_quoted_rate",
+   "fieldtype": "Currency",
+   "label": "Base Quoted Rate"
+  },
+  {
+   "fieldname": "base_quoted_amount",
+   "fieldtype": "Currency",
+   "label": "Base Quoted Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "base_quoted_amount_in_words",
+   "fieldtype": "Data",
+   "label": "Base Amount in Words",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_tkew",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "subject",
+   "fieldtype": "Small Text",
+   "label": "Subject",
+   "reqd": 1
+  },
+  {
+   "allow_bulk_edit": 1,
+   "fieldname": "terms",
+   "fieldtype": "Table",
+   "label": "Terms",
+   "options": "Bid SLA Preparation Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_kywk",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "grand_total",
+   "fieldtype": "Currency",
+   "label": "Grand Total",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amount_in_words",
+   "fieldtype": "Data",
+   "label": "Amount in Words",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_pmxp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "base_grand_total",
+   "fieldtype": "Currency",
+   "label": "Base Grand Total",
+   "read_only": 1
+  },
+  {
+   "fieldname": "base_amount_in_words",
+   "fieldtype": "Data",
+   "label": "Base Amount in Words",
+   "read_only": 1
+  },
+  {
+   "fieldname": "print_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Print Settings"
+  },
+  {
+   "allow_on_submit": 1,
+   "default": "1",
+   "fieldname": "show_percentage",
+   "fieldtype": "Check",
+   "label": "Show Percentage"
+  },
+  {
+   "allow_on_submit": 1,
+   "default": "1",
+   "fieldname": "show_amounts",
+   "fieldtype": "Check",
+   "label": "Show Amounts"
+  },
+  {
+   "allow_on_submit": 1,
+   "default": "1",
+   "fieldname": "hide_financials_in_technical_offer",
+   "fieldtype": "Check",
+   "label": "Hide Financials in Technical Offer"
+  },
+  {
+   "fieldname": "references_section",
+   "fieldtype": "Section Break",
+   "label": "References"
+  },
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Reference DocType",
+   "options": "DocType",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Reference Name",
+   "options": "reference_doctype",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reference_row",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Reference Row",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Bid SLA Preparation",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-10-05 06:57:46.980590",
+ "modified_by": "Administrator",
+ "module": "AKA Selling",
+ "name": "Bid SLA Preparation",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "if_owner": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Master Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

@@ -255,17 +255,3 @@ app_license = "mit"
 
 
 # Fixtures — exported from live site
-fixtures = [
-    {
-        "doctype": "Module Def",
-        "filters": [
-            ["name", "in", ["Sales Department", "Procurement Department", "Inventory Department"]]
-        ]
-    },
-    {
-        "doctype": "Workspace",
-        "filters": [
-            ["name", "in", ["Sales Department", "Procurement Department", "Inventory Department"]]
-        ]
-    }
-]

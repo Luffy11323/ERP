@@ -1,0 +1,115 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-10-05 05:18:41.478489",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "charge_type",
+  "charge_based_on",
+  "percentage",
+  "column_break_gisk",
+  "amount",
+  "event",
+  "charge_accounts_section",
+  "income_account",
+  "waiver_account",
+  "suspense_account",
+  "column_break_yajs",
+  "receivable_account",
+  "write_off_account"
+ ],
+ "fields": [
+  {
+   "fieldname": "charge_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Charge Type",
+   "options": "Item"
+  },
+  {
+   "fieldname": "charge_based_on",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Charge Based On",
+   "options": "Percentage\nFixed Amount"
+  },
+  {
+   "fieldname": "percentage",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Percentage"
+  },
+  {
+   "fieldname": "column_break_gisk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Amount"
+  },
+  {
+   "fieldname": "event",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Event",
+   "options": "\nDisbursement\nRepayment\nRestructure"
+  },
+  {
+   "fieldname": "charge_accounts_section",
+   "fieldtype": "Section Break",
+   "label": "Charge Accounts"
+  },
+  {
+   "columns": 2,
+   "fieldname": "income_account",
+   "fieldtype": "Link",
+   "label": "Income Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "waiver_account",
+   "fieldtype": "Link",
+   "label": "Waiver Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "suspense_account",
+   "fieldtype": "Link",
+   "label": "Suspense Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "column_break_yajs",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "receivable_account",
+   "fieldtype": "Link",
+   "label": "Receivable Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "write_off_account",
+   "fieldtype": "Link",
+   "label": "Write Off Account",
+   "options": "Account"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-05 05:18:41.478489",
+ "modified_by": "Administrator",
+ "module": "Loan Management",
+ "name": "Loan Charges",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

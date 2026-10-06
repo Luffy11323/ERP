@@ -1,0 +1,291 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-10-05 05:18:48.032008",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_rdcp",
+  "project",
+  "project_name",
+  "customer",
+  "customer_name",
+  "column_break_czyt",
+  "company",
+  "status",
+  "guarantee_type",
+  "naming_series",
+  "references_section",
+  "loi_date",
+  "po_date",
+  "att_date",
+  "column_break_jeia",
+  "loi",
+  "po",
+  "att",
+  "section_break_ybuj",
+  "particulars",
+  "section_break_tmxk",
+  "in_favor_of",
+  "section_break_fefo",
+  "project_value",
+  "guarantee_per",
+  "guarantee_amount",
+  "column_break_tfqq",
+  "currency",
+  "conversion_rate",
+  "base_guarantee_amount",
+  "other_expenses_section",
+  "table_jecv",
+  "section_break_fdvb",
+  "requests"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_rdcp",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "options": "Project"
+  },
+  {
+   "fetch_from": "project.project_name",
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "project.customer",
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "customer.customer_name",
+   "fieldname": "customer_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Customer Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_czyt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "project.company",
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
+   "default": "Preparing",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "no_copy": 1,
+   "options": "Preparing\nFinalized\nIssued\nOn Hold"
+  },
+  {
+   "fieldname": "guarantee_type",
+   "fieldtype": "Link",
+   "label": "Guarantee Type",
+   "options": "Performance Guarantee Type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "PG-.YYYY.-"
+  },
+  {
+   "fieldname": "references_section",
+   "fieldtype": "Section Break",
+   "label": "References"
+  },
+  {
+   "fieldname": "loi_date",
+   "fieldtype": "Date",
+   "label": "Letter of Intent Date"
+  },
+  {
+   "fieldname": "po_date",
+   "fieldtype": "Date",
+   "label": "Purchase Order Date"
+  },
+  {
+   "fieldname": "att_date",
+   "fieldtype": "Date",
+   "label": "Advance Acceptance Date"
+  },
+  {
+   "fieldname": "column_break_jeia",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "loi",
+   "fieldtype": "Data",
+   "label": "Letter of Intent"
+  },
+  {
+   "fieldname": "po",
+   "fieldtype": "Data",
+   "label": "Purchase Order"
+  },
+  {
+   "fieldname": "att",
+   "fieldtype": "Data",
+   "label": "Advance Acceptance"
+  },
+  {
+   "fieldname": "section_break_ybuj",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "particulars",
+   "fieldtype": "Text Editor",
+   "label": "Particulars"
+  },
+  {
+   "fieldname": "section_break_tmxk",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "in_favor_of",
+   "fieldtype": "Small Text",
+   "label": "In Favor of"
+  },
+  {
+   "fieldname": "section_break_fefo",
+   "fieldtype": "Section Break",
+   "label": "Guarantee Amount"
+  },
+  {
+   "fieldname": "project_value",
+   "fieldtype": "Currency",
+   "label": "Project Value",
+   "non_negative": 1,
+   "options": "currency"
+  },
+  {
+   "fieldname": "guarantee_per",
+   "fieldtype": "Percent",
+   "label": "Guarantee Percentage"
+  },
+  {
+   "fieldname": "guarantee_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Guarantee Amount",
+   "non_negative": 1,
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_tfqq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "default": "1",
+   "fieldname": "conversion_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "base_guarantee_amount",
+   "fieldtype": "Currency",
+   "label": "Base Guarantee Amount",
+   "non_negative": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "other_expenses_section",
+   "fieldtype": "Section Break",
+   "label": "Other Expenses"
+  },
+  {
+   "fieldname": "table_jecv",
+   "fieldtype": "Table",
+   "options": "Performance Guarantee Expense"
+  },
+  {
+   "fieldname": "section_break_fdvb",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "requests",
+   "fieldtype": "Table",
+   "label": "Extension Requests",
+   "options": "Performance Guarantee Request"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-05 05:18:48.032008",
+ "modified_by": "Administrator",
+ "module": "AKA Selling",
+ "name": "Performance Guarantee",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

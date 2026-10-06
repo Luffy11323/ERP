@@ -1,0 +1,150 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-10-05 05:18:42.952156",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_zcbc",
+  "description",
+  "section_break_emoe",
+  "foreign_currency",
+  "percentage_of_quoted_rate",
+  "sla_rate",
+  "sla_amount",
+  "sla_amount_in_words",
+  "column_break_iosk",
+  "company_currency",
+  "percentage_of_base_quoted_rate",
+  "base_sla_rate",
+  "base_sla_tax_rate",
+  "base_sla_tax_amount",
+  "base_sla_amount_after_tax",
+  "base_sla_amount_in_words"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_zcbc",
+   "fieldtype": "Section Break"
+  },
+  {
+   "columns": 2,
+   "fetch_from": "item_code.description",
+   "fetch_if_empty": 1,
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Description"
+  },
+  {
+   "fieldname": "section_break_emoe",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "foreign_currency",
+   "fieldtype": "Heading",
+   "label": "Foreign Currency"
+  },
+  {
+   "columns": 1,
+   "fieldname": "percentage_of_quoted_rate",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Percentage of Quoted Rate",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "sla_rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "SLA Rate",
+   "options": "currency",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "sla_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "SLA Amount",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sla_amount_in_words",
+   "fieldtype": "Data",
+   "label": "SLA Amount in Words",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_iosk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company_currency",
+   "fieldtype": "Heading",
+   "label": "Company Currency"
+  },
+  {
+   "columns": 1,
+   "fieldname": "percentage_of_base_quoted_rate",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Percentage of Base Quoted Rate",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "base_sla_rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Base SLA Rate",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "base_sla_tax_rate",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Base SLA Tax Rate"
+  },
+  {
+   "columns": 2,
+   "fieldname": "base_sla_tax_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Base SLA Tax Amount"
+  },
+  {
+   "columns": 2,
+   "description": "(Rate + Tax) * Qty ",
+   "fieldname": "base_sla_amount_after_tax",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Base SLA Amount After Tax",
+   "read_only": 1
+  },
+  {
+   "fieldname": "base_sla_amount_in_words",
+   "fieldtype": "Data",
+   "label": "Base SLA Amount in Words",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-05 05:18:42.952156",
+ "modified_by": "Administrator",
+ "module": "AKA Selling",
+ "name": "Bid SLA Preparation Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

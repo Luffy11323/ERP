@@ -1,0 +1,59 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-10-05 05:18:43.269033",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "commission_service_item",
+  "default_delivery_warehouse",
+  "default_due_delivery_days"
+ ],
+ "fields": [
+  {
+   "description": "This will be used to generate sales invoices for rendering indenting services.",
+   "fieldname": "commission_service_item",
+   "fieldtype": "Link",
+   "label": "Commission Service Item",
+   "options": "Item"
+  },
+  {
+   "description": "This warehouse will be used if not mentioned during the bidding preparation.",
+   "fieldname": "default_delivery_warehouse",
+   "fieldtype": "Link",
+   "label": "Default Delivery Warehouse",
+   "options": "Warehouse"
+  },
+  {
+   "description": "If the tender due date is in the past or is not defined, this will be added to the due delivery days.",
+   "fieldname": "default_due_delivery_days",
+   "fieldtype": "Int",
+   "label": "Default Due Delivery Days"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-10-05 05:18:43.269033",
+ "modified_by": "Administrator",
+ "module": "AKA Selling",
+ "name": "Bid Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,382 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-10-05 05:18:41.024160",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "item_code",
+  "item_name",
+  "qty",
+  "tender_sch",
+  "tender_sr",
+  "order_type",
+  "warehouse",
+  "column_break_ehwn",
+  "category",
+  "supplier",
+  "supplier_name",
+  "currency",
+  "create_sales_order_in_base_currency",
+  "inventory_in_stock",
+  "is_optional",
+  "hide_origin",
+  "section_break_lliz",
+  "rate",
+  "amount",
+  "additional_charges",
+  "column_break_ixmm",
+  "uom",
+  "cost_per_item",
+  "total_cost",
+  "section_break_ynhk",
+  "vendor_incoterm",
+  "quoted_rate",
+  "quoted_amount",
+  "amount_in_words",
+  "column_break_mxkg",
+  "company_incoterm",
+  "base_quoted_rate",
+  "base_quoted_amount",
+  "base_tax_rate",
+  "base_tax_amount",
+  "base_quoted_amount_after_tax",
+  "base_amount_in_words",
+  "section_break_lrbv",
+  "description",
+  "technical_specification",
+  "section_break_gjrv",
+  "remarks",
+  "references_section",
+  "ordered_qty",
+  "column_break_adgb"
+ ],
+ "fields": [
+  {
+   "columns": 1,
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item Code",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "fetch_from": "item_code.item_name",
+   "fetch_if_empty": 1,
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Item Name",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Qty",
+   "non_negative": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "tender_sch",
+   "fieldtype": "Data",
+   "label": "Tender Sch#"
+  },
+  {
+   "fieldname": "tender_sr",
+   "fieldtype": "Data",
+   "label": "Tender Sr#"
+  },
+  {
+   "fieldname": "order_type",
+   "fieldtype": "Select",
+   "label": "Order Type",
+   "no_copy": 1,
+   "options": "\nSales\nIndent",
+   "reqd": 1
+  },
+  {
+   "description": "This can change it later at the time of delivery",
+   "fieldname": "warehouse",
+   "fieldtype": "Link",
+   "label": "Delivery Warehouse",
+   "no_copy": 1,
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "column_break_ehwn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "item_code.item_category",
+   "fieldname": "category",
+   "fieldtype": "Link",
+   "label": "Category",
+   "options": "Item Category",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "supplier",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Supplier",
+   "options": "Supplier"
+  },
+  {
+   "fetch_from": "supplier.supplier_name",
+   "fieldname": "supplier_name",
+   "fieldtype": "Data",
+   "label": "Supplier Name"
+  },
+  {
+   "columns": 1,
+   "fetch_from": "supplier.default_currency",
+   "fetch_if_empty": 1,
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "columns": 1,
+   "default": "0",
+   "fieldname": "create_sales_order_in_base_currency",
+   "fieldtype": "Check",
+   "label": "Create Sales Order in Company Currency",
+   "options": "Currency"
+  },
+  {
+   "default": "0",
+   "fieldname": "inventory_in_stock",
+   "fieldtype": "Check",
+   "label": "Inventory In Stock"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_optional",
+   "fieldtype": "Check",
+   "label": "Is Optional"
+  },
+  {
+   "allow_on_submit": 1,
+   "default": "0",
+   "fieldname": "hide_origin",
+   "fieldtype": "Check",
+   "label": "Hide Origin"
+  },
+  {
+   "fieldname": "section_break_lliz",
+   "fieldtype": "Section Break"
+  },
+  {
+   "columns": 1,
+   "fieldname": "rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Vendor Rate",
+   "options": "currency"
+  },
+  {
+   "columns": 1,
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Vendor Amount",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "additional_charges",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Additional Charges",
+   "non_negative": 1,
+   "options": "currency"
+  },
+  {
+   "fieldname": "column_break_ixmm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "item_code.stock_uom",
+   "fetch_if_empty": 1,
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "UOM",
+   "options": "UOM",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "cost_per_item",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Cost per Item",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_cost",
+   "fieldtype": "Currency",
+   "label": "Total Cost",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_ynhk",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "vendor_incoterm",
+   "fieldtype": "Link",
+   "label": "Vendor Incoterm",
+   "options": "Incoterm"
+  },
+  {
+   "columns": 1,
+   "fieldname": "quoted_rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Quoted Rate",
+   "non_negative": 1,
+   "options": "currency",
+   "permlevel": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "quoted_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Quoted Amount",
+   "options": "currency",
+   "permlevel": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "amount_in_words",
+   "fieldtype": "Data",
+   "label": "Amount in Words",
+   "permlevel": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_mxkg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company_incoterm",
+   "fieldtype": "Link",
+   "label": "Company Incoterm",
+   "options": "Incoterm"
+  },
+  {
+   "columns": 1,
+   "fieldname": "base_quoted_rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Base Quoted Rate",
+   "non_negative": 1,
+   "permlevel": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "base_quoted_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Base Quoted Amount",
+   "non_negative": 1,
+   "permlevel": 1,
+   "read_only": 1
+  },
+  {
+   "description": "Applied on Base Quoted Amount",
+   "fieldname": "base_tax_rate",
+   "fieldtype": "Percent",
+   "label": "Base Tax Rate",
+   "non_negative": 1,
+   "permlevel": 1
+  },
+  {
+   "fieldname": "base_tax_amount",
+   "fieldtype": "Currency",
+   "label": "Base Tax Amount",
+   "non_negative": 1,
+   "permlevel": 1
+  },
+  {
+   "fieldname": "base_quoted_amount_after_tax",
+   "fieldtype": "Currency",
+   "label": "Base Quoted Amount After Tax",
+   "non_negative": 1,
+   "permlevel": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "base_amount_in_words",
+   "fieldtype": "Data",
+   "label": "Amount in Words",
+   "permlevel": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_lrbv",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text Editor",
+   "label": "Description"
+  },
+  {
+   "fieldname": "technical_specification",
+   "fieldtype": "Text Editor",
+   "label": "Technical Specification"
+  },
+  {
+   "fieldname": "section_break_gjrv",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "references_section",
+   "fieldtype": "Section Break",
+   "label": "References"
+  },
+  {
+   "fieldname": "ordered_qty",
+   "fieldtype": "Float",
+   "label": "Ordered Qty",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_adgb",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-05 05:18:41.024160",
+ "modified_by": "Administrator",
+ "module": "AKA Selling",
+ "name": "Bid Evaluation Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

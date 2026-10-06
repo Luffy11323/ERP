@@ -1,0 +1,193 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-10-05 06:57:46.447938",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_zeiz",
+  "policy_name",
+  "from_date",
+  "policy_type",
+  "supersedes_policy",
+  "amended_from",
+  "naming_series",
+  "column_break_bpmf",
+  "status",
+  "company",
+  "departments",
+  "employement_type",
+  "country",
+  "section_break_9iqk",
+  "description",
+  "section_break_6cy2",
+  "amendment_details",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_zeiz",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "policy_name",
+   "fieldtype": "Data",
+   "label": "Policy Name"
+  },
+  {
+   "fieldname": "from_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Effective Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "policy_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Policy Type",
+   "options": "HR Policy Type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "supersedes_policy",
+   "fieldtype": "Link",
+   "label": "Supersedes Policy",
+   "options": "AKA HR Policy"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "AKA HR Policy",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "HRP-.YYYY.-"
+  },
+  {
+   "fieldname": "column_break_bpmf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Draft\nUnder Review\nPending Approval\nActive\nObsolete"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "departments",
+   "fieldtype": "Table MultiSelect",
+   "label": "Departments",
+   "options": "HR Policy Department"
+  },
+  {
+   "fieldname": "employement_type",
+   "fieldtype": "Table MultiSelect",
+   "label": "Employement Type",
+   "options": "HR Policy Employment Type"
+  },
+  {
+   "fieldname": "country",
+   "fieldtype": "Table MultiSelect",
+   "label": "Country",
+   "options": "HR Policy Country"
+  },
+  {
+   "fieldname": "section_break_9iqk",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text Editor",
+   "label": "Description"
+  },
+  {
+   "fieldname": "section_break_6cy2",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amendment_details",
+   "fieldtype": "Text Editor",
+   "label": "Amendment Details"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "AKA HR Policy",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-10-05 06:57:46.447938",
+ "modified_by": "Administrator",
+ "module": "AKA HR",
+ "name": "AKA HR Policy",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "policy_name"
+}
