@@ -170,6 +170,8 @@ body.aka-premium .form-control, body.aka-premium .frappe-card { border-radius: 1
 [data-theme="dark"] .aka-table tr.row:hover td { background:#2f3350; }
 [data-theme="dark"] .aka-detail .box { background:#1b1d29; border-color:#6d5bd0; }
 [data-theme="dark"] .aka-detail .it { border-color:#2f3350; }
+[data-theme="dark"] .aka-detail .it span { color:#94a3b8; }
+[data-theme="dark"] .aka-detail .it b { color:#f8fafc; }
 [data-theme="dark"] .aka-ledger .aka-filters input { background:#242738; border-color:#3b4060; color:#e5e7eb; }
 [data-theme="dark"] .aka-ledger h4 { color:#f1f5f9; }
 [data-theme="dark"] .pos { color:#34d399; } [data-theme="dark"] .neg { color:#fb7185; }

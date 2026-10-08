@@ -127,6 +127,7 @@
       .then((r) => paintLedger($l, r.message));
     $l.find("#aka-go").on("click", fetch);
     $l.find("#aka-print").on("click", () => {
+      const w = window.open('', '_blank');
       const printCSS = `body{font-family:'Inter',sans-serif;margin:30px;color:#0f172a;}
         h4, h6 {margin:0} .aka-tot{display:flex;gap:20px;margin:20px 0;border-bottom:2px solid #e2e8f0;padding-bottom:20px}
         .aka-tot div{flex:1} .aka-tot b{display:block;font-size:16px}
