@@ -242,8 +242,8 @@ def _self_kpis(emp):
 
 
 def _last_checkin(employee):
-    row = frappe.db.get_value("Employee Checkin", {"employee": employee},
-                              ["log_type", "time"], order_by="time desc", as_dict=True)
+    rows = frappe.get_all("Employee Checkin", filters={"employee": employee}, fields=["log_type", "time"], order_by="time desc", limit=1)
+    row = rows[0] if rows else None
     if row and getdate(row.time) == getdate(today()):
         return {"log_type": row.log_type, "time": str(row.time)}
     return None
