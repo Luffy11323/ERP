@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class AKAHRPolicy(Document):
+class RMHRPolicy(Document):
 	pass

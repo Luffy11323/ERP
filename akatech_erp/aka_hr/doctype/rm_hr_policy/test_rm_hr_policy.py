@@ -5,5 +5,5 @@
 from frappe.tests.utils import FrappeTestCase
 
 
-class TestAKAHRPolicy(FrappeTestCase):
+class TestRMHRPolicy(FrappeTestCase):
 	pass

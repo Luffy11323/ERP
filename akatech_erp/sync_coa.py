@@ -23,13 +23,6 @@ def api_call(endpoint):
         return None
 
 def rename_account(acc_name):
-    if not acc_name: return acc_name
-    if isinstance(acc_name, str):
-        # Specific replacing of RM to AKA for accounts
-        if acc_name.endswith(" - RM"):
-            acc_name = acc_name[:-5] + " - AKA"
-        if acc_name == "Radiant Medical (Pvt.) Ltd.":
-            return "AKA"
     return acc_name
 
 def sync_accounting_dimensions():
@@ -75,7 +68,7 @@ def sync_chart_of_accounts():
             'name': new_name,
             'account_name': acc.get('account_name'),
             'account_number': acc.get('account_number'),
-            'company': 'AKA',
+            'company': 'Radiant Medical (Pvt.) Ltd.',
             'is_group': acc.get('is_group'),
             'parent_account': parent_account,
             'root_type': acc.get('root_type'),
@@ -108,7 +101,7 @@ def sync_company_defaults():
     res = api_call(f'resource/Company/Radiant%20Medical%20(Pvt.)%20Ltd.')
     if res and res.get('data'):
         radiant_comp = res['data']
-        local_comp = frappe.get_doc("Company", "AKA")
+        local_comp = frappe.get_doc("Company", "Radiant Medical (Pvt.) Ltd.")
         
         # Transfer all account related fields
         updates = {}
@@ -119,7 +112,7 @@ def sync_company_defaults():
                     updates[field] = rename_account(val)
         try:
             for k, v in updates.items():
-                frappe.db.set_value("Company", "AKA", k, v)
+                frappe.db.set_value("Company", "Radiant Medical (Pvt.) Ltd.", k, v)
             print("Company defaults synced!")
         except Exception as e:
             print(f"Error saving Company: {e}")
@@ -140,7 +133,7 @@ def sync_mode_of_payments():
             # rename accounts in accounts table
             for row in mop_doc.get("accounts", []):
                 if row.get("company") == "Radiant Medical (Pvt.) Ltd.":
-                    row["company"] = "AKA"
+                    row["company"] = "Radiant Medical (Pvt.) Ltd."
                 if row.get("default_account"):
                     row["default_account"] = rename_account(row["default_account"])
                     
@@ -157,7 +150,7 @@ def sync_mode_of_payments():
                 # clear old accounts and set new
                 local_doc.set("accounts", [])
                 for row in mop_doc.get("accounts", []):
-                    if row.get("company") == "AKA":
+                    if row.get("company") == "Radiant Medical (Pvt.) Ltd.":
                         local_doc.append("accounts", {
                             "company": row["company"],
                             "default_account": row.get("default_account")

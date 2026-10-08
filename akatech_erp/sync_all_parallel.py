@@ -221,8 +221,8 @@ DOCTYPES = [
 
 PROGRESS_FILE = "/home/administrator/sync_progress.json"
 SITE = "akatech.local"
-MAX_WORKERS = 12
-CHUNK_SIZE = 40
+MAX_WORKERS = 15
+CHUNK_SIZE = 50
 MAX_RETRIES = 3
 
 
@@ -308,12 +308,108 @@ def sync_doc(doctype, name, site, _retry=0):
     finally:
         frappe.destroy()
 
+def sync_doctype_bulk(doctype, progress):
+    if doctype not in progress:
+        progress[doctype] = {"done": []}
+    done = set(progress[doctype]["done"])
+
+    limit_length = 2000
+    limit_start = 0
+    total_found = 0
+    
+    while True:
+        url = f'resource/{urllib.parse.quote(doctype)}?fields=["*"]&limit_start={limit_start}&limit_page_length={limit_length}'
+        res = api_call(url)
+        if not res or "data" not in res or not res["data"]:
+            break
+            
+        data = res["data"]
+        total_found += len(data)
+        
+        frappe.init(site=SITE)
+        frappe.connect()
+        frappe.flags.in_import = True
+        
+        successes = []
+        for d in data:
+            name = d.get("name")
+            if not name or name in done:
+                continue
+                
+            try:
+                if frappe.db.exists(doctype, name):
+                    successes.append(name)
+                    continue
+                    
+                cd = clean_doc(d)
+                cd["doctype"] = doctype
+                
+                doc = frappe.get_doc(cd)
+                doc.flags.ignore_permissions = True
+                doc.flags.ignore_links = True
+                doc.flags.ignore_mandatory = True
+                doc.flags.ignore_validate = True
+                doc.name = name
+                
+                try:
+                    doc.db_insert()
+                    successes.append(name)
+                except Exception as e:
+                    err = str(e)
+                    if "Unknown column" in err:
+                        m = re.search(r"Unknown column '(.+?)'", err)
+                        if m:
+                            col = m.group(1)
+                            try:
+                                alter_table_add_col(doctype, col)
+                                doc.db_insert()
+                                successes.append(name)
+                            except: pass
+                    else:
+                        print(f"  ERR {name}: {err[:150]}", flush=True)
+                        
+            except Exception as e:
+                print(f"  ERR {name}: {str(e)[:150]}", flush=True)
+                
+        frappe.db.commit()
+        frappe.destroy()
+        
+        if successes:
+            progress[doctype]["done"].extend(successes)
+            save_progress(progress)
+            
+        done.update(successes)
+        print(f"  Progress {doctype}: {len(progress[doctype]['done'])} records synced via bulk", flush=True)
+        
+        if len(data) < limit_length:
+            break
+            
+        limit_start += limit_length
+
 
 def sync_doctype(doctype, progress):
     frappe.init(site=SITE)
     frappe.connect()
 
     print(f"\n--- Syncing {doctype} ---", flush=True)
+    
+    # Check if doctype has child tables locally to determine safe bulk mode
+    has_children = False
+    try:
+        meta = frappe.get_meta(doctype)
+        has_children = len(meta.get_table_fields()) > 0
+    except Exception:
+        has_children = True
+        
+    frappe.destroy()
+
+    if not has_children:
+        print(f"  [BULK MODE] {doctype} has no child tables. Speeding up via bulk fetching!", flush=True)
+        sync_doctype_bulk(doctype, progress)
+        return
+
+    frappe.init(site=SITE)
+    frappe.connect()
     res = api_call(
         f'resource/{urllib.parse.quote(doctype)}?fields=["name"]&limit_page_length=500000'
     )

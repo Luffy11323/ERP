@@ -255,3 +255,8 @@ app_license = "mit"
 
 
 # Fixtures — exported from live site
+
+# --- Radiant premium UI ---
+app_include_css = ["/assets/akatech_erp/css/premium_theme.css?v=1791454818"]
+app_include_js = ["/assets/akatech_erp/js/premium_dashboard.js?v=1791454818"]
+boot_session = "akatech_erp.premium_api.boot_session"

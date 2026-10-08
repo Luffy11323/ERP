@@ -5,7 +5,8 @@ Inventory Department
 AKA Buying
 AKA Selling
 Loan Management
-AKA HR
-Havenir Tools
-AKA Payroll
+RM HR
+Kodessy Tools
+RM Payroll
 AKA STOCK
+Kodessy Accounts

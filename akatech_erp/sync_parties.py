@@ -17,7 +17,7 @@ HEADERS = {
 def api_call(endpoint):
     url = f'{BASE_URL}/api/{endpoint}'
     try:
-        response = requests.get(url, headers=HEADERS, timeout=15)
+        response = requests.get(url, headers=HEADERS, timeout=45)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
