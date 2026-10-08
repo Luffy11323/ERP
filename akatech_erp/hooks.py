@@ -151,26 +151,11 @@ app_license = "mit"
 # 	}
 # }
 
-# Scheduled Tasks
-# ---------------
-
-# scheduler_events = {
-# 	"all": [
-# 		"akatech_erp.tasks.all"
-# 	],
-# 	"daily": [
-# 		"akatech_erp.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"akatech_erp.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"akatech_erp.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"akatech_erp.tasks.monthly"
-# 	],
-# }
+scheduler_events = {
+	"monthly": [
+		"akatech_erp.sync_all_parallel.run_scheduled_sync"
+	],
+}
 
 # Testing
 # -------

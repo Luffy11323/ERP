@@ -473,5 +473,55 @@ def main():
     print("\n\n=== MIGRATION COMPLETE ===", flush=True)
 
 
+def sync_updates(doctype):
+    print(f"\n--- Checking Updates for {doctype} ---", flush=True)
+    res = api_call(f'resource/{urllib.parse.quote(doctype)}?fields=["name","modified"]&limit_page_length=500000')
+    if not res or 'data' not in res:
+        return
+
+    data = res['data']
+    to_sync = []
+    for d in data:
+        name = d['name']
+        remote_modified = d.get('modified')
+        local_modified = frappe.db.get_value(doctype, name, 'modified')
+        
+        if not local_modified or (remote_modified and str(remote_modified) > str(local_modified)):
+            to_sync.append(name)
+
+    if not to_sync:
+        print(f"  No updates found for {doctype}.", flush=True)
+        return
+
+    print(f"  Found {len(to_sync)} updates/new records for {doctype}. Syncing now...", flush=True)
+
+    site = frappe.local.site if frappe.local.site else SITE
+    successes = []
+    for i in range(0, len(to_sync), CHUNK_SIZE):
+        chunk = to_sync[i : i + CHUNK_SIZE]
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            futures = {executor.submit(sync_doc, doctype, name, site): name for name in chunk}
+            for future in as_completed(futures):
+                dt, nm, ok, msg = future.result()
+                if ok:
+                    successes.append(nm)
+                else:
+                    print(f"  ERR {nm}: {msg}", flush=True)
+                    
+    print(f"  Successfully synced {len(successes)} / {len(to_sync)} records.", flush=True)
+
+def run_scheduled_sync():
+    """Background Hook Entry Point (Monthly)"""
+    frappe.enqueue("akatech_erp.sync_all_parallel.execute_updates", queue="long", timeout=7200)
+
+def execute_updates():
+    """Runs without frappe.init() because it is already inside a Frappe worker"""
+    for dt in DOCTYPES:
+        try:
+            sync_updates(dt)
+        except Exception as e:
+            print(f"FATAL ERROR checking updates for {dt}: {e}", flush=True)
+    print("Scheduled update sync complete.", flush=True)
+
 if __name__ == "__main__":
     main()
