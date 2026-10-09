@@ -221,7 +221,7 @@ DOCTYPES = [
 
 PROGRESS_FILE = "/home/administrator/sync_progress.json"
 SITE = "akatech.local"
-MAX_WORKERS = 15
+MAX_WORKERS = 2
 CHUNK_SIZE = 50
 MAX_RETRIES = 3
 
@@ -495,18 +495,16 @@ def sync_updates(doctype):
 
     print(f"  Found {len(to_sync)} updates/new records for {doctype}. Syncing now...", flush=True)
 
-    site = frappe.local.site if frappe.local.site else SITE
+    site = frappe.local.site if hasattr(frappe.local, 'site') and frappe.local.site else SITE
     successes = []
     for i in range(0, len(to_sync), CHUNK_SIZE):
         chunk = to_sync[i : i + CHUNK_SIZE]
-        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            futures = {executor.submit(sync_doc, doctype, name, site): name for name in chunk}
-            for future in as_completed(futures):
-                dt, nm, ok, msg = future.result()
-                if ok:
-                    successes.append(nm)
-                else:
-                    print(f"  ERR {nm}: {msg}", flush=True)
+        for name in chunk:
+            dt, nm, ok, msg = sync_doc(doctype, name, site)
+            if ok:
+                successes.append(nm)
+            else:
+                print(f"  ERR {nm}: {msg}", flush=True)
                     
     print(f"  Successfully synced {len(successes)} / {len(to_sync)} records.", flush=True)
 
