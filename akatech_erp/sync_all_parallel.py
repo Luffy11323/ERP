@@ -219,23 +219,33 @@ DOCTYPES = [
     "Driver",
 ]
 
-PROGRESS_FILE = "/home/administrator/sync_progress.json"
 SITE = "akatech.local"
 MAX_WORKERS = 2
 CHUNK_SIZE = 50
 MAX_RETRIES = 3
 
+def get_progress_file():
+    return frappe.get_site_path("private", "files", "sync_progress.json")
 
 def load_progress():
-    if os.path.exists(PROGRESS_FILE):
-        with open(PROGRESS_FILE, "r") as f:
+    path = get_progress_file()
+    if os.path.exists(path):
+        with open(path, "r") as f:
             return json.load(f)
     return {}
 
-
 def save_progress(prog):
-    with open(PROGRESS_FILE, "w") as f:
+    path = get_progress_file()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
         json.dump(prog, f)
+
+def log_ui(title, message):
+    print(f"[{title}] {message}", flush=True)
+    try:
+        frappe.log_error(message, title)
+    except Exception:
+        pass
 
 
 def alter_table_add_col(doctype, col):
@@ -515,12 +525,13 @@ def run_scheduled_sync():
 
 def execute_updates():
     """Runs without frappe.init() because it is already inside a Frappe worker"""
+    log_ui("Sync Started", "Started monthly background database sync.")
     for dt in DOCTYPES:
         try:
             sync_updates(dt)
         except Exception as e:
-            print(f"FATAL ERROR checking updates for {dt}: {e}", flush=True)
-    print("Scheduled update sync complete.", flush=True)
+            log_ui("Sync Error", f"FATAL ERROR checking updates for {dt}: {e}")
+    log_ui("Sync Complete", "Scheduled update sync successfully completed.")
 
 if __name__ == "__main__":
     main()
