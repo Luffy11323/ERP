@@ -508,6 +508,7 @@ def sync_updates(doctype):
                     
     print(f"  Successfully synced {len(successes)} / {len(to_sync)} records.", flush=True)
 
+@frappe.whitelist()
 def run_scheduled_sync():
     """Background Hook Entry Point (Monthly)"""
     frappe.enqueue("akatech_erp.sync_all_parallel.execute_updates", queue="long", timeout=7200)
