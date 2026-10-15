@@ -47,7 +47,7 @@ echo " Python: $PYTHON_BIN"
 echo "============================================================"
 
 WITH_BACKUP=false
-ARGS=()
+ARGS=("--force-prune")
 
 for arg in "$@"; do
     if [ "$arg" == "--with-backup" ]; then
@@ -56,6 +56,7 @@ for arg in "$@"; do
         ARGS+=("$arg")
     fi
 done
+
 
 # 3. Execute the sync
 if [ -n "$BENCH_DIR" ]; then
