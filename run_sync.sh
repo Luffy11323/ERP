@@ -59,13 +59,15 @@ done
 
 
 # 3. Execute the sync
+SYNC_ERR=0
 if [ -n "$BENCH_DIR" ]; then
     cd "$BENCH_DIR/sites"
-    "$PYTHON_BIN" -m akatech_erp.monthly_sync "${ARGS[@]}"
+    "$PYTHON_BIN" -m akatech_erp.monthly_sync "${ARGS[@]}" || SYNC_ERR=$?
 else
     cd "$APP_DIR"
-    "$PYTHON_BIN" -m akatech_erp.monthly_sync "${ARGS[@]}"
+    "$PYTHON_BIN" -m akatech_erp.monthly_sync "${ARGS[@]}" || SYNC_ERR=$?
 fi
+
 
 # 3b. Auto-resolve edge cases (Employee duplicate CNIC, usernames, leftover links)
 if [ -f "$APP_DIR/akatech_erp/fix_leftovers.py" ]; then

@@ -137,7 +137,19 @@ def fetch_doc(doctype, name):
         res = get_json(f"resource/{urllib.parse.quote(doctype)}/{urllib.parse.quote(str(name), safe='')}")
         return name, (res or {}).get("data"), None
     except Exception as e:  # noqa: BLE001
+        if doctype == "File" and "403" in str(e):
+            try:
+                list_res = get_json(
+                    "resource/File",
+                    params={"filters": json.dumps([["name", "=", name]]), "fields": json.dumps(["*"])},
+                )
+                data = (list_res or {}).get("data")
+                if data and len(data) > 0:
+                    return name, data[0], None
+            except Exception:
+                pass
         return name, None, str(e)
+
 
 
 # ───────────────────────────── State / logging ─────────────────────────────
@@ -215,11 +227,35 @@ def insert_with_heal(doc):
             doc.db_insert()
             return
         except Exception as e:  # noqa: BLE001
-            m = re.search(r"Unknown column '(.+?)'", str(e))
-            if not m:
-                raise
-            alter_table_add_col(doc.doctype, m.group(1))
+            err_str = str(e)
+            m = re.search(r"Unknown column '(.+?)'", err_str)
+            if m:
+                alter_table_add_col(doc.doctype, m.group(1))
+                continue
+            dup_m = re.search(r"Duplicate entry '(.+?)' for key '(.+?)'", err_str)
+            if dup_m:
+                key_name = dup_m.group(2)
+                # Child table primary key collision
+                if key_name == "PRIMARY" and hasattr(doc, "name") and doc.doctype != getattr(doc, "parenttype", None):
+                    doc.name = frappe.generate_hash(length=10)
+                    continue
+                # Unique key on parent document (e.g. username, cnic, email)
+                if hasattr(doc, "meta"):
+                    resolved = False
+                    for f in getattr(doc.meta, "fields", []):
+                        if f.fieldname.lower() in key_name.lower() or f.fieldname in ("username", "cnic"):
+                            if f.fieldtype in ("Data", "Small Text"):
+                                val = getattr(doc, "name", f"{getattr(doc, f.fieldname, '')}_{frappe.generate_hash(4)}")
+                                setattr(doc, f.fieldname, val)
+                            else:
+                                setattr(doc, f.fieldname, None)
+                            resolved = True
+                            break
+                    if resolved:
+                        continue
+            raise
     raise RuntimeError("too many missing columns")
+
 
 
 def write_doc(doctype, data, existed):
