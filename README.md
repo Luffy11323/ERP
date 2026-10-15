@@ -34,8 +34,8 @@ Data flow: **Radiant (cloud) → local `akatech.local` (monthly script) → back
 | **Database backups (+ files tars)** | `/home/administrator/frappe-bench/sites/akatech.local/private/backups/` (`*-database.sql.gz`, `*-files.tar`, `*-private-files.tar`, `*-site_config_backup.json`). The server also auto-backs-up every ~6 h here. |
 | **MariaDB data dir** | `/var/lib/mariadb/` — database for `akatech.local` is `/var/lib/mariadb/_9b9681f70464fc6f/` (InnoDB `.ibd`). Never read these files directly; use Frappe/`bench mariadb`. |
 | DB credentials | `sites/akatech.local/site_config.json` (`db_name`, `db_password`) |
-| Monthly sync state | `/home/administrator/monthly_sync_state.json` |
-| Monthly sync error log | `/home/administrator/monthly_sync_errors.log` |
+| Monthly sync state (committed to git) | `/home/administrator/frappe-bench/apps/akatech_erp/sync_state/monthly_sync_state.json` |
+| Monthly sync error log (committed to git) | `/home/administrator/frappe-bench/apps/akatech_erp/sync_state/monthly_sync_errors.log` |
 | Old one-time migration progress | `/home/administrator/sync_progress.json` |
 | `.env` (credentials, git-ignored) | `/home/administrator/frappe-bench/apps/akatech_erp/.env` |
 | Whole WSL disk | `E:\WSL\Ubuntu\ext4.vhdx` (Windows side) |
@@ -98,7 +98,15 @@ Pipeline (what makes it fast **and** exact):
 6. **Verify (1:1)** – local vs Radiant row counts for every doctype. Fewer locally → forced full re-sync of that doctype. More locally → orphans pruned (refuses if >20% of rows). Leftover mismatches are printed and exit code is `2`.
 7. **Full backup with files** – prints the 3 files to upload (`.sql.gz`, public `.tar`, private `.tar`), saved in `sites/akatech.local/private/backups/`.
 
-State: `monthly_sync_state.json` holds per-doctype watermarks (a doctype only advances if it finished with zero errors); failed records are listed in `monthly_sync_errors.log` and retried next run.
+State: `sync_state/monthly_sync_state.json` holds per-doctype watermarks; failed records are listed in `sync_state/monthly_sync_errors.log` and retried next run. **Commit and push `sync_state/` after each run** so a new machine/chat continues incrementally instead of redoing the slow first run.
+
+**Fault / termination tolerance:** safe to Ctrl+C, kill or lose power mid-run, then just run it again.
+- Every write is idempotent: a document is only re-fetched if it is missing, newer remotely, or its docstatus changed.
+- Watermarks are saved atomically after each clean page and at the end of each doctype, and only while that doctype has had zero errors. An interrupted run resumes at the last clean page; failed records are retried automatically.
+- Uncommitted DB transactions roll back on kill; a half-updated document is re-fetched next run. Partial file downloads use `.part` files and are redone.
+- The lock is released automatically if the process dies; a pre-sync backup is taken before any write.
+- Network errors retry 4× with back-off, then are logged (never silently skipped).
+- Limit: a killed first run restarts the current page of the doctype it was in (it does not redo finished pages).
 
 Options: `--dry-run`, `--since YYYY-MM-DD`, `--doctypes A B`, `--skip-files`, `--skip-verify`, `--no-backup`, `--with-audit` (also `Version` + `Comment`), `--workers N`.
 
@@ -120,11 +128,15 @@ Lessons learned:
 - Raw-injected DBs give `Module HR not found` / `ModuleNotFoundError: akatech_erp.rm_hr.report` unless the apps are registered on the site and this repo is deployed.
 - A restore replaces everything on the live site — stop data entry in AKA before restoring.
 
-## 7. Tips for continuing work
+## 7. Tips for continuing work (read before starting a new chat)
 
+- **Production repo is `https://github.com/Luffy11323/ERP` (`main`). Work directly in the WSL app `/home/administrator/frappe-bench/apps/akatech_erp`.** Do **not** clone to temp folders, do **not** force-push, do **not** push to `Radiant`. Ask before any git operation that rewrites history.
+- Tell the assistant to read this README first; `.env` is not in git (create it from `.env.example` — see §4).
+- Before the first run on a fresh machine: `git pull`, create `.env`, run `--dry-run`.
+- After every sync run: `git add sync_state && git commit -m "sync state <date>" && git push` (pull first if needed).
 - From Windows: `wsl -d Ubuntu -- bash -lc "..."`; Python: `frappe-bench/env/bin/python`; SQL: `bench --site akatech.local mariadb -e "..."`.
 - Do not alter schema locally except to fix a specific validation bug during cutover.
-- Commit only this app to **`Luffy11323/ERP`** (never the bench, DB dumps or `.env`; `*.sql.gz`, `*.tar`, `.env` are git-ignored). Don't force-push; this repo is production.
+- Never commit the bench, `.env` or secrets. DB dumps/files tars are git-ignored (`*.sql.gz`, `*.tar`) unless deliberately added (see below).
 - Original context notes: `AKA_ERP_Context.md` in the Windows backup folder.
 
 ## Installation

@@ -8,3 +8,4 @@ __pycache__
 .env
 *.sql.gz
 *.tar
+sync_state/*.tmp

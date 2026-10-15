@@ -46,8 +46,12 @@ from akatech_erp.env import API_KEY, API_SECRET, BASE_URL
 from akatech_erp.sync_all_parallel import DOCTYPES, alter_table_add_col
 
 SITE = "akatech.local"
-STATE_FILE = os.environ.get("MONTHLY_SYNC_STATE", "/home/administrator/monthly_sync_state.json")
-ERROR_LOG = os.environ.get("MONTHLY_SYNC_ERRORS", "/home/administrator/monthly_sync_errors.log")
+# State + error log live INSIDE the repo (apps/akatech_erp/sync_state/) so they can be committed/pushed.
+STATE_DIR = os.environ.get(
+    "MONTHLY_SYNC_STATE_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "sync_state")
+)
+STATE_FILE = os.path.join(STATE_DIR, "monthly_sync_state.json")
+ERROR_LOG = os.path.join(STATE_DIR, "monthly_sync_errors.log")
 LOCK_FILE = os.environ.get("MONTHLY_SYNC_LOCK", "/tmp/akatech_monthly_sync.lock")
 
 PAGE = 5000
@@ -145,6 +149,7 @@ def load_state():
 
 
 def save_state(state):
+    os.makedirs(STATE_DIR, exist_ok=True)
     tmp = STATE_FILE + ".tmp"
     with open(tmp, "w") as f:
         json.dump(state, f)
@@ -152,6 +157,7 @@ def save_state(state):
 
 
 def log_error(msg):
+    os.makedirs(STATE_DIR, exist_ok=True)
     with open(ERROR_LOG, "a") as f:
         f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg}\n")
 
@@ -401,6 +407,13 @@ def sync_doctype(dt, state, args, full=False):
                 if done % COMMIT_EVERY == 0:
                     frappe.db.commit()
             frappe.db.commit()
+            # Checkpoint: pages are ordered by modified, so after a clean page everything up to
+            # its last row is in sync. A killed run then resumes from here instead of from scratch.
+            if stats["errors"] == 0 and max_mod:
+                cur = state["watermarks"].get(dt)
+                if not cur or max_mod > cur:
+                    state["watermarks"][dt] = max_mod
+                    save_state(state)
     except Exception as e:  # noqa: BLE001
         stats["errors"] += 1
         log_error(f"{dt}: {e}")
