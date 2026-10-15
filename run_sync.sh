@@ -77,16 +77,18 @@ if [ -f "$APP_DIR/akatech_erp/fix_leftovers.py" ]; then
 fi
 
 
-# 4. Optional automatic backup push
+# 4. Backup Destination (GitHub push disabled due to 4.7 GB file size limit)
+# Backups are stored locally in: /home/administrator/frappe-bench/sites/akatech.local/private/backups/
+# Future destination: Local Network Server (\\192.168.1.100)
 if [ "$WITH_BACKUP" = true ]; then
     echo ""
     echo "============================================================"
-    echo " Sync finished. Pushing backup to Luffy11323/Backup..."
+    echo " Backups generated in sites/akatech.local/private/backups/"
+    echo " (GitHub push disabled - backup size exceeds 100MB limit)"
+    echo " Ready to sync to local server IP (\\\\192.168.1.100)"
     echo "============================================================"
-    if [ -f "$APP_DIR/push_backup.sh" ]; then
-        bash "$APP_DIR/push_backup.sh"
-    fi
 fi
+
 
 echo ""
 echo "Done!"
