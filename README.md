@@ -77,19 +77,17 @@ To make syncing ongoing, crash-resilient, and repeatable for monthly updates, `s
 | Context Notes | `C:\Users\Administrator\Desktop\Radiant_ERP_Backup\AKA_ERP_Context.md` |
 | Progress Log | `C:\Users\Administrator\Desktop\Radiant_ERP_Backup\sync_progress.json` |
 
-## 5. Auto-Resolving Leftovers & Edge Cases (`fix_leftovers.py`)
+## 5. Universal Edge-Case Auto-Healing (`fix_leftovers.py`)
 
-During bulk syncs, certain legacy data quirks on the live Radiant system can trigger non-fatal database constraint rejections:
-- **Duplicate CNICs:** Multiple draft or inactive employee records sharing dummy/duplicate National IDs.
-- **Duplicate Usernames:** Users sharing identical `username` fields on the remote system.
-- **Legacy Module References:** Old workspaces referencing `RM ...` modules instead of `AKA ...`.
+During bulk syncs, remote database quirks (duplicate unique fields, child table collisions, or invalid references) can occasionally trigger database constraint errors.
 
-### The Fix Tool: `akatech_erp/fix_leftovers.py`
-To guarantee 100% 1:1 mapping, the repository includes [`fix_leftovers.py`](file:///C:/Users/Administrator/Desktop/Radiant_ERP_Backup/code/akatech_erp/fix_leftovers.py) which:
-1. Injects missing/colliding Employee records while safely ignoring duplicate CNIC constraints.
-2. Resolves company-representing customer linking (`RM-CUS-0359`).
-3. Remaps legacy `RM` module definitions to `AKA`.
-4. Restores 1:1 linkages between `Employee` and `User` accounts.
+Rather than using brittle hardcoded fixes, the repository features a **Universal Dynamic Auto-Healer** ([`fix_leftovers.py`](file:///C:/Users/Administrator/Desktop/Radiant_ERP_Backup/code/akatech_erp/fix_leftovers.py)) that operates across **ANY DocType**:
+
+1. **Automated Error Log Ingestion:** Parses `sync_state/monthly_sync_errors.log` line-by-line to automatically detect whatever records failed (Employee, User, Workspace, Item, Invoices, etc.).
+2. **Dynamic Unique Constraint Resolution:** Uses Frappe metadata (`frappe.get_meta(doctype)`) to detect any field marked `unique` (CNIC, username, tax ID, registration number). If a collision occurs, it automatically disambiguates text keys or nulls duplicate numbers so MariaDB never blocks the insert.
+3. **Child Table Primary Key Clashing:** Dynamically detects child table row ID collisions (e.g. `Workspace Link`) and regenerates clean random hashes (`frappe.generate_hash()`).
+4. **Foreign Key & User Linkage Normalization:** Cleans dangling user references and links all `Employee` records to their corresponding `User` accounts.
+5. **Fallback Exception Interceptor:** If an insert throws a constraint error, it intercepts the SQL key name, auto-nulls the colliding field, and retries immediately.
 
 > **Automated Execution:** `./run_sync.sh` is pre-configured to **automatically execute `fix_leftovers.py`** immediately after the main upsert phase and before taking the final backup.
 > 
