@@ -79,15 +79,36 @@ Search order: real env vars → `$AKATECH_ENV_FILE` → `apps/akatech_erp/.env` 
 > ⚠️ The old API key/secret and past Frappe Cloud DB passwords are in git history and old chats. **Rotate them**
 > (Radiant: User → API Access → Regenerate; Frappe Cloud: recreate the DB user), then update `.env`.
 
-## 5. Monthly sync (run manually, from Windows PowerShell)
+## 5. 1-Command Scraping & Sync Runner
 
-```powershell
-# preview only (writes nothing)
-wsl -d Ubuntu -- bash -lc "cd /home/administrator/frappe-bench/sites && ../env/bin/python -m akatech_erp.monthly_sync --dry-run"
+You can trigger the scraper/sync with **one single command** anywhere:
 
-# real run
-wsl -d Ubuntu -- bash -lc "cd /home/administrator/frappe-bench/sites && ../env/bin/python -m akatech_erp.monthly_sync"
+### From Linux / WSL:
+```bash
+cd /home/administrator/frappe-bench/apps/akatech_erp
+
+# 1. Normal sync (upserts, deletes, attachments, verify)
+./run_sync.sh
+
+# 2. Preview only (checks counts, writes nothing)
+./run_sync.sh --dry-run
+
+# 3. Sync AND automatically push database backup to Luffy11323/Backup
+./run_sync.sh --with-backup
 ```
+
+### From Windows PowerShell:
+```powershell
+cd C:\Users\Administrator\Desktop\Radiant_ERP_Backup\code
+
+# Run sync directly into WSL with one click
+.\run_sync.ps1
+
+# Or with options:
+.\run_sync.ps1 --dry-run
+.\run_sync.ps1 --with-backup
+```
+
 
 Pipeline (what makes it fast **and** exact):
 
