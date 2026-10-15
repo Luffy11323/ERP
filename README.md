@@ -77,9 +77,30 @@ To make syncing ongoing, crash-resilient, and repeatable for monthly updates, `s
 | Context Notes | `C:\Users\Administrator\Desktop\Radiant_ERP_Backup\AKA_ERP_Context.md` |
 | Progress Log | `C:\Users\Administrator\Desktop\Radiant_ERP_Backup\sync_progress.json` |
 
+## 5. Auto-Resolving Leftovers & Edge Cases (`fix_leftovers.py`)
+
+During bulk syncs, certain legacy data quirks on the live Radiant system can trigger non-fatal database constraint rejections:
+- **Duplicate CNICs:** Multiple draft or inactive employee records sharing dummy/duplicate National IDs.
+- **Duplicate Usernames:** Users sharing identical `username` fields on the remote system.
+- **Legacy Module References:** Old workspaces referencing `RM ...` modules instead of `AKA ...`.
+
+### The Fix Tool: `akatech_erp/fix_leftovers.py`
+To guarantee 100% 1:1 mapping, the repository includes [`fix_leftovers.py`](file:///C:/Users/Administrator/Desktop/Radiant_ERP_Backup/code/akatech_erp/fix_leftovers.py) which:
+1. Injects missing/colliding Employee records while safely ignoring duplicate CNIC constraints.
+2. Resolves company-representing customer linking (`RM-CUS-0359`).
+3. Remaps legacy `RM` module definitions to `AKA`.
+4. Restores 1:1 linkages between `Employee` and `User` accounts.
+
+> **Automated Execution:** `./run_sync.sh` is pre-configured to **automatically execute `fix_leftovers.py`** immediately after the main upsert phase and before taking the final backup.
+> 
+> You can also run it standalone anytime:
+> ```bash
+> wsl -d Ubuntu -- bash -lc "cd /home/administrator/frappe-bench/sites && ../env/bin/python -m akatech_erp.fix_leftovers"
+> ```
+
 ---
 
-## 5. Deploying to Live Frappe Cloud
+## 6. Deploying to Live Frappe Cloud
 
 Once the sync finishes and produces the backup trio (`database.sql.gz`, `public-files.tar`, `private-files.tar`):
 1. Navigate to your **Frappe Cloud Dashboard → Sites → Your Site → Restore with files**.
@@ -88,7 +109,7 @@ Once the sync finishes and produces the backup trio (`database.sql.gz`, `public-
 4. Deploy the latest `main` branch of `https://github.com/Luffy11323/ERP` (via Updates tab).
 5. All records, attachments, users, and dashboards will be live and 100% identical to Radiant Medical.
 
-## 6. Architecture Roadmap & Future TODOs
+## 7. Architecture Roadmap & Future TODOs
 
 While the current setup provides exceptional 1:1 data fidelity and crash-resilience, the following improvements are planned for future scale:
 
@@ -107,7 +128,8 @@ While the current setup provides exceptional 1:1 data fidelity and crash-resilie
 
 ---
 
-## 7. How to Run (Single Command Hand-Off)
+## 8. How to Run (Single Command Hand-Off)
+
 
 
 ### On THIS machine right now:

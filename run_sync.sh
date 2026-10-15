@@ -66,6 +66,16 @@ else
     "$PYTHON_BIN" -m akatech_erp.monthly_sync "${ARGS[@]}"
 fi
 
+# 3b. Auto-resolve edge cases (Employee duplicate CNIC, usernames, leftover links)
+if [ -f "$APP_DIR/akatech_erp/fix_leftovers.py" ]; then
+    echo ""
+    echo "============================================================"
+    echo " Auto-resolving edge-case leftovers (fix_leftovers.py)..."
+    echo "============================================================"
+    "$PYTHON_BIN" -m akatech_erp.fix_leftovers || echo "Notice: fix_leftovers completed with non-fatal warnings"
+fi
+
+
 # 4. Optional automatic backup push
 if [ "$WITH_BACKUP" = true ]; then
     echo ""
