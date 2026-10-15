@@ -88,9 +88,27 @@ Once the sync finishes and produces the backup trio (`database.sql.gz`, `public-
 4. Deploy the latest `main` branch of `https://github.com/Luffy11323/ERP` (via Updates tab).
 5. All records, attachments, users, and dashboards will be live and 100% identical to Radiant Medical.
 
+## 6. Architecture Roadmap & Future TODOs
+
+While the current setup provides exceptional 1:1 data fidelity and crash-resilience, the following improvements are planned for future scale:
+
+- [ ] **Direct DB Streaming Option (Ultra-Fast Initial Extraction):**
+  - *Current:* Pulls records over Frappe Cloud HTTPS REST API (`api/resource/DocType`) with controlled concurrency to respect rate limits.
+  - *Enhancement:* If direct read-only MySQL/MariaDB credentials are granted on Radiant Medical's cloud host, add a direct `mysqldump` / MariaDB tunnel mode to complete initial bulk migrations in minutes rather than hours.
+- [ ] **Git LFS or Object Storage (S3 / R2 / Releases) for Backups > 100 MB:**
+  - *Current:* Backups are committed to `Luffy11323/Backup`. GitHub enforces a hard limit of 100 MB per file.
+  - *Enhancement:* As attachment tars and database dumps grow, update `push_backup.sh` to leverage **Git LFS (Large File Storage)** or stream archives directly to Cloudflare R2 / AWS S3 / GitHub Release assets.
+- [ ] **Automated Headless Scheduling (Cron / Systemd Timer):**
+  - *Current:* The monthly sync is triggered manually on-demand via `./run_sync.sh --with-backup`.
+  - *Enhancement:* Set up a WSL systemd timer or cron job (`0 0 1 * *`) to automatically execute incremental updates on the 1st of every month at midnight.
+- [ ] **Adaptive Worker Concurrency:**
+  - *Current:* Uses static worker concurrency to prevent HTTP 429 (Too Many Requests).
+  - *Enhancement:* Implement dynamic concurrency back-off that automatically throttles up when response latencies are low and scales down if rate limiting is encountered.
+
 ---
 
-## 6. How to Run (Single Command Hand-Off)
+## 7. How to Run (Single Command Hand-Off)
+
 
 ### On THIS machine right now:
 
