@@ -5,8 +5,8 @@ import urllib.error
 import json
 import requests
 
-API_KEY = '43d9f1e7f721b65'
-API_SECRET = '5c2b9f75ba21775'
+from akatech_erp.env import API_KEY
+from akatech_erp.env import API_SECRET
 BASE_URL = 'https://radiant-medical.frappe.cloud'
 HEADERS = {
     'Authorization': f'token {API_KEY}:{API_SECRET}',
