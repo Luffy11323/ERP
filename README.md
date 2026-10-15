@@ -15,6 +15,7 @@ without losing any record, audit trace, attachment or profile picture.
 | Framework | Frappe / ERPNext **v15** (frappe 15.122), apps: `frappe`, `erpnext`, `hrms`, `akatech_erp` |
 | **Production repo (source of truth)** | **`https://github.com/Luffy11323/ERP`** (branch `main`) — this repo; deployed to Frappe Cloud |
 | Other repo (NOT production) | `https://github.com/Luffy11323/Radiant` — old/backup mirror, do not push production work there |
+| **Backup repo (data)** | **`https://github.com/Luffy11323/Backup`** — latest `database.sql.gz` + `public-files.tar` + `private-files.tar` (+ `LATEST.txt`). Code never goes here; data never goes to the ERP repo. |
 | Source system (read-only) | `https://radiant-medical.frappe.cloud` (Radiant ERP, read via REST API token) |
 | Local mirror | WSL Ubuntu, bench `/home/administrator/frappe-bench`, site **`akatech.local`**, MariaDB |
 | Target (live) | Frappe Cloud site for AKA (erpnext + hrms + akatech_erp) |
@@ -128,6 +129,15 @@ Lessons learned:
 - Raw-injected DBs give `Module HR not found` / `ModuleNotFoundError: akatech_erp.rm_hr.report` unless the apps are registered on the site and this repo is deployed.
 - A restore replaces everything on the live site — stop data entry in AKA before restoring.
 
+**Backup repo (`Luffy11323/Backup`)** — after a sync (or any time), push db + public + private files with:
+
+```powershell
+wsl -d Ubuntu -- bash -lc "bash /home/administrator/frappe-bench/apps/akatech_erp/push_backup.sh"          # new backup, then push
+wsl -d Ubuntu -- bash -lc "bash /home/administrator/frappe-bench/apps/akatech_erp/push_backup.sh --no-new"  # push newest existing backup
+```
+
+It works from a local repo at `/home/administrator/Backup_repo` (created automatically, remote = Backup), keeps only the latest trio in the working tree (git history keeps older ones), never force-pushes, and warns if a file nears GitHub's 100 MB limit (then use Git LFS or release assets). To restore from it on a new machine: `git clone https://github.com/Luffy11323/Backup` and upload the three files in Frappe Cloud → **Restore with files**. Contains private business data — keep the repo **private**. Public/private files are only complete after `monthly_sync` has run its Files step.
+
 ## 7. Tips for continuing work (read before starting a new chat)
 
 - **Production repo is `https://github.com/Luffy11323/ERP` (`main`). Work directly in the WSL app `/home/administrator/frappe-bench/apps/akatech_erp`.** Do **not** clone to temp folders, do **not** force-push, do **not** push to `Radiant`. Ask before any git operation that rewrites history.
@@ -136,7 +146,7 @@ Lessons learned:
 - After every sync run: `git add sync_state && git commit -m "sync state <date>" && git push` (pull first if needed).
 - From Windows: `wsl -d Ubuntu -- bash -lc "..."`; Python: `frappe-bench/env/bin/python`; SQL: `bench --site akatech.local mariadb -e "..."`.
 - Do not alter schema locally except to fix a specific validation bug during cutover.
-- Never commit the bench, `.env` or secrets. DB dumps/files tars are git-ignored (`*.sql.gz`, `*.tar`) unless deliberately added (see below).
+- Never commit the bench, `.env` or secrets to the ERP repo. DB dumps and files tars go **only** to the Backup repo (`push_backup.sh`); they are git-ignored in the ERP repo (`*.sql.gz`, `*.tar`).
 - Original context notes: `AKA_ERP_Context.md` in the Windows backup folder.
 
 ## Installation
