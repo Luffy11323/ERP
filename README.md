@@ -160,7 +160,8 @@ The only setup steps before running that command are:
 4. It auto-heals edge cases (duplicate CNIC, usernames, links) via `fix_leftovers.py`.
 5. It prunes orphan records that do not exist on live Radiant based on real-time queries.
 6. It validates row counts 1:1 against Radiant Medical.
-7. It packages the database + files and automatically commits and pushes the 3 backup files to `Luffy11323/Backup`.
+7. It packages the database + files locally in `sites/akatech.local/private/backups/`, ready for Frappe Cloud restore or transfer to your local server (`\\192.168.1.100`).
 
 You're all set to fire it off!
+
 
