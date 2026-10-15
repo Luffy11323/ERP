@@ -449,7 +449,7 @@ def prune_extras(dt, args):
     extras = local - remote
     if not extras:
         return 0
-    if len(extras) > max(50, MAX_PRUNE_RATIO * len(local)):
+    if not getattr(args, "force_prune", False) and len(extras) > max(50, MAX_PRUNE_RATIO * len(local)):
         msg = f"{dt}: refusing to prune {len(extras)} of {len(local)} local rows (too many) - check manually"
         print("  " + msg, flush=True)
         log_error(msg)
@@ -514,7 +514,9 @@ def main():
     ap.add_argument("--skip-files", action="store_true")
     ap.add_argument("--skip-verify", action="store_true")
     ap.add_argument("--no-backup", action="store_true")
+    ap.add_argument("--force-prune", action="store_true", help="allow pruning orphan rows even if exceeding MAX_PRUNE_RATIO")
     ap.add_argument("--with-audit", action="store_true", help="also sync Version + Comment")
+
     ap.add_argument("--workers", type=int, default=8)
     args = ap.parse_args()
 
