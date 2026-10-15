@@ -154,9 +154,13 @@ The only setup steps before running that command are:
    ```
 
 ### What happens when you run it:
-1. It imports the remaining transaction records and missing fields.
-2. It downloads all attachments/photos.
-3. It validates row counts 1:1 against Radiant Medical.
-4. It packages the database + files and automatically commits and pushes the 3 backup files to `Luffy11323/Backup`.
+1. It replays deletions from Radiant live.
+2. It checks watermarks and pulls only modified/new records and child tables.
+3. It downloads all missing attachments/photos.
+4. It auto-heals edge cases (duplicate CNIC, usernames, links) via `fix_leftovers.py`.
+5. It prunes orphan records that do not exist on live Radiant based on real-time queries.
+6. It validates row counts 1:1 against Radiant Medical.
+7. It packages the database + files and automatically commits and pushes the 3 backup files to `Luffy11323/Backup`.
 
 You're all set to fire it off!
+
