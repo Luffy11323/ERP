@@ -98,13 +98,94 @@ Rather than using brittle hardcoded fixes, the repository features a **Universal
 
 ---
 
-## 6. Deploying to Live Frappe Cloud
+## 6. Deploying to Live Frappe Cloud & Migration Resolution
 
-Once the sync finishes and produces the backup trio (`database.sql.gz`, `public-files.tar`, `private-files.tar`):
+### Method A: Direct Database Streaming via CLI (Recommended & Fastest)
+
+Uploading huge database dumps through the Frappe Cloud browser interface can time out, fail, or be painfully slow. You can stream the compressed `.sql.gz` dump directly into the remote Frappe Cloud MariaDB instance via CLI.
+
+#### 1-Command Automated Deploy Script:
+We provide an automated script [`deploy_db_to_cloud.sh`](file:///C:/Users/Administrator/Desktop/Radiant_ERP_Backup/code/deploy_db_to_cloud.sh) that streams the latest database and ensures the Administrator user and password are configured:
+
+```bash
+# In WSL:
+cd /home/administrator/frappe-bench/apps/akatech_erp
+./deploy_db_to_cloud.sh
+```
+
+#### Manual Direct Commands:
+If you prefer running the commands manually:
+
+1. **Stream the Database:**
+   ```bash
+   zcat /mnt/c/Users/Administrator/Desktop/Radiant_ERP_Backup/database_backup/new/20261015_145558-akatech_local-database.sql.gz | mysql -h n1-falkenstein-3.frappe.cloud -P 3306 -u fedea5f716a0953 -p6e3bacebd9fac2e4f3e4 _21953a8194dbd2c8
+   ```
+
+2. **Ensure Administrator User & Set Password to `123`:**
+   ```bash
+   mysql -h n1-falkenstein-3.frappe.cloud -P 3306 -u fedea5f716a0953 -p6e3bacebd9fac2e4f3e4 _21953a8194dbd2c8 -e "
+   INSERT INTO \`tabUser\` (
+       name, email, first_name, username, enabled, user_type, send_welcome_email, creation, modified, modified_by, owner
+   ) VALUES (
+       'Administrator', 'admin@example.com', 'Administrator', 'administrator', 1, 'System User', 0, NOW(), NOW(), 'Administrator', 'Administrator'
+   ) ON DUPLICATE KEY UPDATE enabled = 1;
+
+   INSERT IGNORE INTO \`tabHas Role\` (name, parent, parenttype, parentfield, role, creation, modified, modified_by, owner)
+   VALUES 
+   (REPLACE(UUID(),'-',''), 'Administrator', 'User', 'roles', 'System Manager', NOW(), NOW(), 'Administrator', 'Administrator'),
+   (REPLACE(UUID(),'-',''), 'Administrator', 'User', 'roles', 'Administrator', NOW(), NOW(), 'Administrator', 'Administrator');
+
+   DELETE FROM \`__Auth\` WHERE doctype = 'User' AND name = 'Administrator' AND fieldname = 'password';
+
+   INSERT INTO \`__Auth\` (doctype, name, fieldname, password, encrypted)
+   VALUES ('User', 'Administrator', 'password', '\$pbkdf2-sha256\$29000\$1BojRAhBqPWec04pBQDAuA\$wdZVtzCoeS9X7bmmzPjplfmsPWkR/8B1EqaD/LhBHGg', 0);
+   "
+   ```
+
+---
+
+### Migration Bumps & How They Are Solved
+
+When migrating and restoring onto Frappe Cloud, two common bumps occur:
+
+#### Bump 1: Patch `update_closing_balances #14-07-2023` (KeyError: 1)
+- **Error:**
+  ```text
+  Executing erpnext.patches.v14_0.update_closing_balances #14-07-2023
+  KeyError: 1
+  ```
+- **Cause:** This legacy v14 patch checks for `posting_date` on `Period Closing Voucher`, which is not present in v15 (superseded by `transaction_date`).
+- **Resolution:** We inject the patch completion entry into `tabPatch Log` so `bench migrate` considers it already executed and skips it safely:
+  ```sql
+  INSERT IGNORE INTO \`tabPatch Log\` (name, patch, creation, modified, modified_by, owner)
+  VALUES (
+      REPLACE(UUID(),'-',''),
+      'erpnext.patches.v14_0.update_closing_balances #14-07-2023',
+      NOW(), NOW(), 'Administrator', 'Administrator'
+  );
+  ```
+  *(This is already included in our latest database export).*
+
+#### Bump 2: "User Administrator does not exist" During Cloud Restore
+- **Error:**
+  ```text
+  Set Administrator Password
+  User Administrator does not exist
+  ```
+- **Cause:** During pruning of local records not found in the remote API query, `Administrator` was cleaned up locally because Radiant Medical's REST API `/api/resource/User` did not expose the default `Administrator` account. When Frappe Cloud attempts to run its automated `Set Administrator Password` post-restore routine, it fails if the record is missing.
+- **Resolution:** We re-insert `Administrator` with the `System Manager` and `Administrator` roles and set the password to `123` (using the native Frappe PBKDF2 hash).
+- **Default Credentials:**
+  - **Username / Email:** `Administrator` (or `admin@example.com`)
+  - **Password:** `123`
+
+---
+
+### Method B: Browser Upload via Frappe Cloud Dashboard
+
 1. Navigate to your **Frappe Cloud Dashboard → Sites → Your Site → Restore with files**.
-2. Upload the 3 backup files.
+2. Upload the 3 backup files (`*-database.sql.gz`, `*-files.tar`, `*-private-files.tar`).
 3. Click **Restore**, click **Clear Cache**, and run **Migrate**.
-4. Deploy the latest `main` branch of `https://github.com/Luffy11323/ERP` (via Updates tab).
+4. Deploy the latest `main` branch of `https://github.com/Luffy11323/ERP`.
 5. All records, attachments, users, and dashboards will be live and 100% identical to Radiant Medical.
 
 ## 7. Architecture Roadmap & Future TODOs
