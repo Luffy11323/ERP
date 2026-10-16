@@ -48,10 +48,10 @@ To make syncing ongoing, crash-resilient, and repeatable for monthly updates, `s
 
 ## 3. Current Project Status
 
-- **Database State:** 155 master and setup DocTypes are completely synced and verified in the local MariaDB (`akatech.local`).
-- **Remaining DocTypes (82):** The remaining queue consists of transaction entries (Attendance, Appraisal, Payroll Entry, Salary Slip, Quality Inspection, Stock Entry, Purchase Receipt, Sales Invoice, GL Entry, etc.).
-- **Scraper / Runner State:** Packaged, tested, and pushed to `main` on `Luffy11323/ERP` (commit `cfafb14`).
-- **Ready to Run:** Everything is primed for the single command to sync the remaining records, download files, verify 1:1 parity, and push the backup to GitHub.
+- **Database State (100% Synced):** All 230 DocTypes (masters, setup, audit logs, and transaction entries) are completely synced and verified **1:1** against Radiant Medical in the local MariaDB (`akatech.local`).
+- **File Attachments:** 9,942 files (4.7 GB private files, 284 MB public files) completely downloaded and archived.
+- **Frappe Cloud Deployment:** Successfully streamed to remote Frappe Cloud MariaDB (`radiant-medical-kodessy.frappe.cloud`), legacy patch `#14-07-2023` bypassed, and `Administrator` configured with `123`.
+- **Pipeline Runner:** Fully packaged into a single interactive command (`./run_sync.sh`) that automates scraping, auto-healing, patch injection, backup creation, Frappe Cloud streaming with `pv` visual progress, and Administrator setup.
 
 ---
 
