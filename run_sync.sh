@@ -264,10 +264,17 @@ INSERT INTO \`tabUser\` (
     '$ADMIN_USER', 'admin@example.com', '$ADMIN_USER', 'administrator', 1, 'System User', 0, NOW(), NOW(), '$ADMIN_USER', '$ADMIN_USER'
 ) ON DUPLICATE KEY UPDATE enabled = 1;
 
+INSERT INTO \`tabUser\` (
+    name, email, first_name, username, enabled, user_type, send_welcome_email, creation, modified, modified_by, owner
+) VALUES (
+    'Guest', 'Guest', 'Guest', 'guest', 1, 'Website User', 0, NOW(), NOW(), '$ADMIN_USER', '$ADMIN_USER'
+) ON DUPLICATE KEY UPDATE enabled = 1;
+
 INSERT IGNORE INTO \`tabHas Role\` (name, parent, parenttype, parentfield, role, creation, modified, modified_by, owner)
 VALUES 
 (REPLACE(UUID(),'-',''), '$ADMIN_USER', 'User', 'roles', 'System Manager', NOW(), NOW(), '$ADMIN_USER', '$ADMIN_USER'),
-(REPLACE(UUID(),'-',''), '$ADMIN_USER', 'User', 'roles', 'Administrator', NOW(), NOW(), '$ADMIN_USER', '$ADMIN_USER');
+(REPLACE(UUID(),'-',''), '$ADMIN_USER', 'User', 'roles', 'Administrator', NOW(), NOW(), '$ADMIN_USER', '$ADMIN_USER'),
+(REPLACE(UUID(),'-',''), 'Guest', 'User', 'roles', 'Guest', NOW(), NOW(), '$ADMIN_USER', '$ADMIN_USER');
 
 DELETE FROM \`__Auth\` WHERE doctype = 'User' AND name = '$ADMIN_USER' AND fieldname = 'password';
 

@@ -483,6 +483,8 @@ def prune_extras(dt, args):
         remote.update(r["name"] for r in page)
     local = set(frappe.db.sql_list(f"select name from `tab{dt}`"))
     extras = local - remote
+    if dt == "User":
+        extras -= {"Administrator", "Guest"}
     if not extras:
         return 0
     if not getattr(args, "force_prune", False) and len(extras) > max(50, MAX_PRUNE_RATIO * len(local)):
