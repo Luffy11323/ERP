@@ -209,40 +209,64 @@ While the current setup provides exceptional 1:1 data fidelity and crash-resilie
 
 ## 8. How to Run (Single Command Hand-Off)
 
-
-
-### On THIS machine right now:
-
-You don't even need to pull. Your local WSL directory is already on the latest commit (`cfafb14`) and your `.env` credentials are in place. You can run that exact command immediately:
+Everything is unified into a single command: `./run_sync.sh`.
 
 ```bash
-wsl -d Ubuntu -- bash -lc "cd /home/administrator/frappe-bench/apps/akatech_erp && ./run_sync.sh --with-backup"
+wsl -d Ubuntu -- bash -lc "cd /home/administrator/frappe-bench/apps/akatech_erp && ./run_sync.sh"
 ```
 
-### If running on ANY NEW machine:
+### What Happens When You Run This Single Command:
 
-The only setup steps before running that command are:
+1. **Automatic `.env` & Credentials Check:**
+   - If `.env` is not present, it interactively prompts you to enter:
+     - Radiant Medical API credentials (`RADIANT_API_KEY`, `RADIANT_API_SECRET`).
+     - Frappe Cloud MariaDB destination (`Host`, `Port`, `DB`, `User`, `Password`).
+     - Desired `Administrator` password (defaults to `123`).
+     - Backup directory (defaults to `/mnt/c/Users/Administrator/Desktop/Radiant_ERP_Backup/database_backup/new`).
+   - Automatically writes `.env` so you only have to enter them once.
 
-1. Pull the code repo into your bench:
-   ```bash
-   bench get-app https://github.com/Luffy11323/ERP
-   ```
-2. Create `.env` inside `apps/akatech_erp/` with your `RADIANT_API_KEY` and `RADIANT_API_SECRET`.
-3. (You do not need to manually pull `Luffy11323/Backup` beforehand — `./push_backup.sh` handles connecting to that repo automatically).
-4. Run your command:
-   ```bash
-   ./run_sync.sh --with-backup
-   ```
+2. **Scraping & 1:1 Parity Sync:**
+   - Replays deletions from live Radiant Medical.
+   - Incrementally scrapes new and updated records across all DocTypes.
+   - Downloads any missing public and private file attachments.
+   - Prunes orphan records and verifies row counts 1:1.
 
-### What happens when you run it:
-1. It replays deletions from Radiant live.
-2. It checks watermarks and pulls only modified/new records and child tables.
-3. It downloads all missing attachments/photos.
-4. It auto-heals edge cases (duplicate CNIC, usernames, links) via `fix_leftovers.py`.
-5. It prunes orphan records that do not exist on live Radiant based on real-time queries.
-6. It validates row counts 1:1 against Radiant Medical.
-7. It packages the database + files locally in `sites/akatech.local/private/backups/`, ready for Frappe Cloud restore or transfer to your local server (`\\192.168.1.100`).
+3. **Universal Auto-Healing (`fix_leftovers.py`):**
+   - Automatically heals any duplicate CNIC, duplicate usernames, child table key clashes, or dangling user links.
 
-You're all set to fire it off!
+4. **Patch Fix Injection (`#14-07-2023`):**
+   - Injects the legacy ERPNext v14 patch record into `tabPatch Log` so Frappe Cloud migration won't crash with `KeyError: 1`.
+
+5. **Fresh Backup Generation:**
+   - Runs `bench backup --with-files` to create the complete backup quartet (`*-database.sql.gz`, `*-files.tar`, `*-private-files.tar`, `*-site_config_backup.json`).
+
+6. **Direct Frappe Cloud Database Streaming (with live progress):**
+   - Reads the latest `.sql.gz` backup and streams it directly into your remote Frappe Cloud MariaDB instance (`n1-falkenstein-3.frappe.cloud`).
+   - Uses `pv` to display real-time upload speed and data transfer progress.
+
+7. **Automated Administrator User & Password Setup:**
+   - Automatically creates the `Administrator` user in `tabUser`, assigns `System Manager` and `Administrator` roles in `tabHas Role`, and sets the password to `123` via PBKDF2 hash.
+
+---
+
+### Command Flags:
+- **Full Run (Scrape + Auto-heal + Backup + Stream to Cloud):**
+  ```bash
+  ./run_sync.sh
+  ```
+- **Stream Only (Skip scraping, immediately deploy latest local DB to Cloud):**
+  ```bash
+  ./run_sync.sh --stream-only
+  ```
+- **Local Only (Skip cloud streaming):**
+  ```bash
+  ./run_sync.sh --skip-cloud
+  ```
+- **Skip File Downloads (Database records only):**
+  ```bash
+  ./run_sync.sh --skip-files
+  ```
+
+You're all set to fire it off with 1 command!
 
 
