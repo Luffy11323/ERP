@@ -58,16 +58,16 @@ To make syncing ongoing, crash-resilient, and repeatable for monthly updates, `s
 ## 4. Key Paths & Reference Architecture
 
 ### WSL (Ubuntu)
-| Component | Path (v15 Production) | Path (v16.5 Staging / Target) |
+| Component | Primary Bench (v16.5 Live) | Archived Baseline (v15) |
 |---|---|---|
-| Bench Root | `/home/administrator/frappe-bench/` | `/home/administrator/v16-bench/` |
-| Custom App Repo | `/home/administrator/frappe-bench/apps/akatech_erp/` | `/home/administrator/v16-bench/apps/akatech_erp/` |
-| Site Directory | `/home/administrator/frappe-bench/sites/akatech.local/` | `/home/administrator/v16-bench/sites/v16.local/` |
-| Database Name | `_9b9681f70464fc6f` | `_v16_staging` |
-| Python Runtime | Python 3.10 virtualenv | Python 3.14.4 virtualenv |
-| Node.js Runtime | Node 18 | Node 24.22.1 |
-| Uploaded Files | `akatech.local/public/files/` & `private/files/` | `v16.local/public/files/` & `private/files/` |
-| Backups Directory | `akatech.local/private/backups/` | `v16.local/private/backups/` |
+| Bench Root | `/home/administrator/frappe-bench/` (symlink: `v16-bench`) | `/home/administrator/frappe-bench-v15/` |
+| Custom App Repo | `/home/administrator/frappe-bench/apps/akatech_erp/` | `/home/administrator/frappe-bench-v15/apps/akatech_erp/` |
+| Site Directory | `/home/administrator/frappe-bench/sites/v16.local/` (alias: `akatech.local`) | `/home/administrator/frappe-bench-v15/sites/akatech.local/` |
+| Database Name | `_v16_staging` | `_9b9681f70464fc6f` |
+| Python Runtime | Python 3.14.4 virtualenv | Python 3.10 virtualenv |
+| Node.js Runtime | Node 24.22.1 | Node 18 |
+| Uploaded Files | `sites/v16.local/public/files/` & `private/files/` | `sites/akatech.local/public/files/` & `private/files/` |
+| Backups Directory | `sites/v16.local/private/backups/` | `sites/akatech.local/private/backups/` |
 | Sync State & Watermarks | `apps/akatech_erp/sync_state/monthly_sync_state.json` | `apps/akatech_erp/sync_state/monthly_sync_state.json` |
 | Credentials | `apps/akatech_erp/.env` (git-ignored) | `apps/akatech_erp/.env` (git-ignored) |
 
@@ -217,14 +217,14 @@ Everything is unified into a single command: `./run_sync.sh`.
 
 To run the complete pipeline from live Radiant v15 scraping to auto-healing, backup generation, and direct MariaDB cloud streaming in one step:
 
-* **For v16.5 Pipeline (Recommended):**
+* **Primary 1-Command Runner (v16.5 Live Bench):**
   ```bash
-  wsl -d Ubuntu -- bash -lc "cd /home/administrator/v16-bench/apps/akatech_erp && ./run_sync.sh --site v16.local"
+  wsl -d Ubuntu -- bash -lc "cd /home/administrator/frappe-bench/apps/akatech_erp && ./run_sync.sh"
   ```
 
-* **For v15 Pipeline (Legacy Production):**
+* **Archived Legacy v15 Runner:**
   ```bash
-  wsl -d Ubuntu -- bash -lc "cd /home/administrator/frappe-bench/apps/akatech_erp && ./run_sync.sh --site akatech.local"
+  wsl -d Ubuntu -- bash -lc "cd /home/administrator/frappe-bench-v15/apps/akatech_erp && ./run_sync.sh --site akatech.local"
   ```
 
 ---
