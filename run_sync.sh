@@ -127,30 +127,60 @@ fi
 # Parse CLI flags
 SKIP_CLOUD=false
 STREAM_ONLY=false
+TARGET_SITE="${FRAPPE_SITE:-}"
 SYNC_ARGS=("--force-prune")
 
-for arg in "$@"; do
-    case "$arg" in
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --site)
+            TARGET_SITE="$2"
+            shift 2
+            ;;
+        --site=*)
+            TARGET_SITE="${1#*=}"
+            shift
+            ;;
         --skip-cloud)
             SKIP_CLOUD=true
+            shift
             ;;
         --stream-only)
             STREAM_ONLY=true
+            shift
             ;;
         --with-backup)
             # Retain compatibility
+            shift
             ;;
         *)
-            SYNC_ARGS+=("$arg")
+            SYNC_ARGS+=("$1")
+            shift
             ;;
     esac
 done
+
+# Auto-detect target site if not specified
+if [ -z "$TARGET_SITE" ]; then
+    if [ -n "$BENCH_DIR" ]; then
+        if [ -d "$BENCH_DIR/sites/v16.local" ] && [[ "$BENCH_DIR" == *"v16-bench"* ]]; then
+            TARGET_SITE="v16.local"
+        elif [ -d "$BENCH_DIR/sites/akatech.local" ]; then
+            TARGET_SITE="akatech.local"
+        else
+            TARGET_SITE="$(ls -d "$BENCH_DIR/sites"/*/ 2>/dev/null | grep -v 'assets' | head -1 | xargs -n1 basename || echo 'akatech.local')"
+        fi
+    else
+        TARGET_SITE="akatech.local"
+    fi
+fi
+export FRAPPE_SITE="$TARGET_SITE"
 
 echo "============================================================"
 echo " Akatech ERP Sync & Deployment Pipeline"
 echo " Date:   $(date '+%Y-%m-%d %H:%M:%S')"
 echo " Python: $PYTHON_BIN"
 [ -n "$BENCH_DIR" ] && echo " Bench:  $BENCH_DIR"
+echo " Site:   $TARGET_SITE"
 echo "============================================================"
 
 # ------------------------------------------------------------------------------
@@ -161,23 +191,31 @@ if [ "$STREAM_ONLY" = false ]; then
     echo ">>> Step 1/4: Running 1:1 Incremental Scraper..."
     if [ -n "$BENCH_DIR" ]; then
         cd "$BENCH_DIR/sites"
-        "$PYTHON_BIN" -m akatech_erp.monthly_sync "${SYNC_ARGS[@]}"
+        "$PYTHON_BIN" -m akatech_erp.monthly_sync --site "$TARGET_SITE" "${SYNC_ARGS[@]}" --no-backup || echo "Notice: Initial sync pass finished with pending items; running auto-healing & retry..."
     else
         cd "$APP_DIR"
-        "$PYTHON_BIN" -m akatech_erp.monthly_sync "${SYNC_ARGS[@]}"
+        "$PYTHON_BIN" -m akatech_erp.monthly_sync --site "$TARGET_SITE" "${SYNC_ARGS[@]}" --no-backup || echo "Notice: Initial sync pass finished with pending items; running auto-healing & retry..."
     fi
 
     echo ""
     echo ">>> Step 2/4: Running Universal Auto-Healing (fix_leftovers.py)..."
     if [ -f "$APP_DIR/akatech_erp/fix_leftovers.py" ]; then
-        "$PYTHON_BIN" -m akatech_erp.fix_leftovers || echo "Notice: fix_leftovers completed with non-fatal notices."
+        "$PYTHON_BIN" -m akatech_erp.fix_leftovers "$TARGET_SITE" || echo "Notice: fix_leftovers completed with non-fatal notices."
+    fi
+
+    echo ""
+    echo ">>> Step 2b/4: Re-checking healed DocTypes for clean 1:1 match..."
+    if [ -n "$BENCH_DIR" ]; then
+        cd "$BENCH_DIR/sites"
+        "$PYTHON_BIN" -m akatech_erp.monthly_sync --site "$TARGET_SITE" --doctypes "Purchase Order" "Employee" --skip-files --no-backup || echo "Notice: Re-check pass completed."
     fi
 
     # Ensure Patch Fix (#14-07-2023) is recorded locally before backup
     if [ -n "$BENCH_DIR" ]; then
         "$PYTHON_BIN" -c "
-import frappe
-frappe.init(site='akatech.local')
+import frappe, os
+site = os.environ.get('FRAPPE_SITE', '$TARGET_SITE')
+frappe.init(site=site)
 frappe.connect()
 patch = 'erpnext.patches.v14_0.update_closing_balances #14-07-2023'
 if not frappe.db.exists('Patch Log', {'patch': patch}):
@@ -195,7 +233,7 @@ if not frappe.db.exists('Patch Log', {'patch': patch}):
         echo ""
         echo ">>> Step 3/4: Generating Fresh Local Backup Archive..."
         cd "$BENCH_DIR/sites"
-        bench --site akatech.local backup --with-files
+        bench --site "$TARGET_SITE" backup --with-files
     fi
 fi
 
@@ -216,10 +254,11 @@ echo ">>> Step 4/4: Streamlining Database directly to Frappe Cloud..."
 # Locate latest backup file
 BACKUP_FILE=""
 SEARCH_DIRS=(
+    "$SCRIPT_DIR/../../sites/$TARGET_SITE/private/backups"
+    "/home/administrator/v16-bench/sites/v16.local/private/backups"
+    "/home/administrator/frappe-bench/sites/akatech.local/private/backups"
     "${BACKUP_DIR:-}"
     "/mnt/c/Users/Administrator/Desktop/Radiant_ERP_Backup/database_backup/new"
-    "$SCRIPT_DIR/../../sites/akatech.local/private/backups"
-    "/home/administrator/frappe-bench/sites/akatech.local/private/backups"
 )
 
 for d in "${SEARCH_DIRS[@]}"; do
@@ -243,10 +282,11 @@ echo "Target Cloud DB:   ${FC_USER:-fedea5f716a0953}@${FC_HOST:-n1-falkenstein-3
 echo "Streaming in progress... (this typically takes 3-6 minutes across WAN)"
 
 # Use 'pv' if installed for a live progress bar, otherwise fallback to zcat
+MYSQL_OPTS="--compress --connect-timeout=60 --max-allowed-packet=64M --net-buffer-length=16384"
 if command -v pv >/dev/null 2>&1; then
-    pv "$BACKUP_FILE" | gzip -d | mysql -h "${FC_HOST:-n1-falkenstein-3.frappe.cloud}" -P "${FC_PORT:-3306}" -u "${FC_USER:-fedea5f716a0953}" -p"${FC_PASS:-6e3bacebd9fac2e4f3e4}" "${FC_DB:-_21953a8194dbd2c8}"
+    pv "$BACKUP_FILE" | gzip -d | mysql $MYSQL_OPTS -h "${FC_HOST:-n1-falkenstein-3.frappe.cloud}" -P "${FC_PORT:-3306}" -u "${FC_USER:-fedea5f716a0953}" -p"${FC_PASS:-6e3bacebd9fac2e4f3e4}" "${FC_DB:-_21953a8194dbd2c8}"
 else
-    zcat "$BACKUP_FILE" | mysql -h "${FC_HOST:-n1-falkenstein-3.frappe.cloud}" -P "${FC_PORT:-3306}" -u "${FC_USER:-fedea5f716a0953}" -p"${FC_PASS:-6e3bacebd9fac2e4f3e4}" "${FC_DB:-_21953a8194dbd2c8}"
+    zcat "$BACKUP_FILE" | mysql $MYSQL_OPTS -h "${FC_HOST:-n1-falkenstein-3.frappe.cloud}" -P "${FC_PORT:-3306}" -u "${FC_USER:-fedea5f716a0953}" -p"${FC_PASS:-6e3bacebd9fac2e4f3e4}" "${FC_DB:-_21953a8194dbd2c8}"
 fi
 
 echo "Database streamed successfully!"

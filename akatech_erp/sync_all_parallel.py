@@ -219,40 +219,29 @@ DOCTYPES = [
     "Driver",
 ]
 
+PROGRESS_FILE = "/home/administrator/sync_progress.json"
 SITE = "akatech.local"
-MAX_WORKERS = 2
+MAX_WORKERS = 10
 CHUNK_SIZE = 50
 MAX_RETRIES = 3
 
-def get_progress_file():
-    return frappe.get_site_path("private", "files", "sync_progress.json")
 
 def load_progress():
-    path = get_progress_file()
-    if os.path.exists(path):
-        with open(path, "r") as f:
+    if os.path.exists(PROGRESS_FILE):
+        with open(PROGRESS_FILE, "r") as f:
             return json.load(f)
     return {}
 
-def save_progress(prog):
-    path = get_progress_file()
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w") as f:
-        json.dump(prog, f)
 
-def log_ui(title, message):
-    print(f"[{title}] {message}", flush=True)
-    try:
-        frappe.log_error(message, title)
-    except Exception:
-        pass
+def save_progress(prog):
+    with open(PROGRESS_FILE, "w") as f:
+        json.dump(prog, f)
 
 
 def alter_table_add_col(doctype, col):
     """Add a missing column to a doctype's table. Ignores duplicate errors."""
     try:
-        frappe.db.sql(f"ALTER TABLE `tab{doctype}` ADD COLUMN `{col}` TEXT")
-        frappe.db.commit()
+        frappe.db.sql_ddl(f"ALTER TABLE `tab{doctype}` ADD COLUMN `{col}` TEXT")
         return True
     except Exception as e:
         msg = str(e)
@@ -482,56 +471,6 @@ def main():
 
     print("\n\n=== MIGRATION COMPLETE ===", flush=True)
 
-
-def sync_updates(doctype):
-    print(f"\n--- Checking Updates for {doctype} ---", flush=True)
-    res = api_call(f'resource/{urllib.parse.quote(doctype)}?fields=["name","modified"]&limit_page_length=500000')
-    if not res or 'data' not in res:
-        return
-
-    data = res['data']
-    to_sync = []
-    for d in data:
-        name = d['name']
-        remote_modified = d.get('modified')
-        local_modified = frappe.db.get_value(doctype, name, 'modified')
-        
-        if not local_modified or (remote_modified and str(remote_modified) > str(local_modified)):
-            to_sync.append(name)
-
-    if not to_sync:
-        print(f"  No updates found for {doctype}.", flush=True)
-        return
-
-    print(f"  Found {len(to_sync)} updates/new records for {doctype}. Syncing now...", flush=True)
-
-    site = frappe.local.site if hasattr(frappe.local, 'site') and frappe.local.site else SITE
-    successes = []
-    for i in range(0, len(to_sync), CHUNK_SIZE):
-        chunk = to_sync[i : i + CHUNK_SIZE]
-        for name in chunk:
-            dt, nm, ok, msg = sync_doc(doctype, name, site)
-            if ok:
-                successes.append(nm)
-            else:
-                print(f"  ERR {nm}: {msg}", flush=True)
-                    
-    print(f"  Successfully synced {len(successes)} / {len(to_sync)} records.", flush=True)
-
-@frappe.whitelist()
-def run_scheduled_sync():
-    """Background Hook Entry Point (Monthly)"""
-    frappe.enqueue("akatech_erp.sync_all_parallel.execute_updates", queue="long", timeout=7200)
-
-def execute_updates():
-    """Runs without frappe.init() because it is already inside a Frappe worker"""
-    log_ui("Sync Started", "Started monthly background database sync.")
-    for dt in DOCTYPES:
-        try:
-            sync_updates(dt)
-        except Exception as e:
-            log_ui("Sync Error", f"FATAL ERROR checking updates for {dt}: {e}")
-    log_ui("Sync Complete", "Scheduled update sync successfully completed.")
 
 if __name__ == "__main__":
     main()

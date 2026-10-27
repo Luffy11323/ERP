@@ -58,16 +58,18 @@ To make syncing ongoing, crash-resilient, and repeatable for monthly updates, `s
 ## 4. Key Paths & Reference Architecture
 
 ### WSL (Ubuntu)
-| Component | Path |
-|---|---|
-| Bench Root | `/home/administrator/frappe-bench/` |
-| Custom App Repo | `/home/administrator/frappe-bench/apps/akatech_erp/` |
-| Site Directory | `/home/administrator/frappe-bench/sites/akatech.local/` |
-| Database Storage | `/var/lib/mariadb/_9b9681f70464fc6f/` (MariaDB) |
-| Uploaded Files | `sites/akatech.local/public/files/` & `private/files/` |
-| Backups Directory | `sites/akatech.local/private/backups/` |
-| Sync State & Watermarks | `apps/akatech_erp/sync_state/monthly_sync_state.json` |
-| Credentials | `apps/akatech_erp/.env` (git-ignored) |
+| Component | Path (v15 Production) | Path (v16.5 Staging / Target) |
+|---|---|---|
+| Bench Root | `/home/administrator/frappe-bench/` | `/home/administrator/v16-bench/` |
+| Custom App Repo | `/home/administrator/frappe-bench/apps/akatech_erp/` | `/home/administrator/v16-bench/apps/akatech_erp/` |
+| Site Directory | `/home/administrator/frappe-bench/sites/akatech.local/` | `/home/administrator/v16-bench/sites/v16.local/` |
+| Database Name | `_9b9681f70464fc6f` | `_v16_staging` |
+| Python Runtime | Python 3.10 virtualenv | Python 3.14.4 virtualenv |
+| Node.js Runtime | Node 18 | Node 24.22.1 |
+| Uploaded Files | `akatech.local/public/files/` & `private/files/` | `v16.local/public/files/` & `private/files/` |
+| Backups Directory | `akatech.local/private/backups/` | `v16.local/private/backups/` |
+| Sync State & Watermarks | `apps/akatech_erp/sync_state/monthly_sync_state.json` | `apps/akatech_erp/sync_state/monthly_sync_state.json` |
+| Credentials | `apps/akatech_erp/.env` (git-ignored) | `apps/akatech_erp/.env` (git-ignored) |
 
 ### Windows Host
 | Component | Path |
@@ -211,23 +213,31 @@ While the current setup provides exceptional 1:1 data fidelity and crash-resilie
 
 Everything is unified into a single command: `./run_sync.sh`.
 
-```bash
-wsl -d Ubuntu -- bash -lc "cd /home/administrator/frappe-bench/apps/akatech_erp && ./run_sync.sh"
-```
+### Full Monthly Scrape & Direct Cloud Deployment (Scrape -> Auto-Heal -> Backup -> Stream to Frappe Cloud)
 
-### What Happens When You Run This Single Command:
+To run the complete pipeline from live Radiant v15 scraping to auto-healing, backup generation, and direct MariaDB cloud streaming in one step:
+
+* **For v16.5 Pipeline (Recommended):**
+  ```bash
+  wsl -d Ubuntu -- bash -lc "cd /home/administrator/v16-bench/apps/akatech_erp && ./run_sync.sh --site v16.local"
+  ```
+
+* **For v15 Pipeline (Legacy Production):**
+  ```bash
+  wsl -d Ubuntu -- bash -lc "cd /home/administrator/frappe-bench/apps/akatech_erp && ./run_sync.sh --site akatech.local"
+  ```
+
+---
+
+### What Happens When You Run This Command:
 
 1. **Automatic `.env` & Credentials Check:**
-   - If `.env` is not present, it interactively prompts you to enter:
-     - Radiant Medical API credentials (`RADIANT_API_KEY`, `RADIANT_API_SECRET`).
-     - Frappe Cloud MariaDB destination (`Host`, `Port`, `DB`, `User`, `Password`).
-     - Desired `Administrator` password (defaults to `123`).
-     - Backup directory (defaults to `/mnt/c/Users/Administrator/Desktop/Radiant_ERP_Backup/database_backup/new`).
-   - Automatically writes `.env` so you only have to enter them once.
+   - Validates Radiant Medical API keys and Frappe Cloud MariaDB destination parameters.
 
 2. **Scraping & 1:1 Parity Sync:**
    - Replays deletions from live Radiant Medical.
    - Incrementally scrapes new and updated records across all DocTypes.
+   - For v16, automatically decomposes legacy JSON tax entries into `Item Wise Tax Detail` child rows.
    - Downloads any missing public and private file attachments.
    - Prunes orphan records and verifies row counts 1:1.
 
@@ -249,24 +259,37 @@ wsl -d Ubuntu -- bash -lc "cd /home/administrator/frappe-bench/apps/akatech_erp 
 
 ---
 
-### Command Flags:
-- **Full Run (Scrape + Auto-heal + Backup + Stream to Cloud):**
+### Additional Command Variations:
+
+* **Stream Latest Local DB Only (Skip scraping, immediately deploy to Cloud):**
   ```bash
-  ./run_sync.sh
+  wsl -d Ubuntu -- bash -lc "cd /home/administrator/v16-bench/apps/akatech_erp && ./run_sync.sh --stream-only"
   ```
-- **Stream Only (Skip scraping, immediately deploy latest local DB to Cloud):**
+* **Local Run Only (Scrape + Auto-heal + Backup locally without cloud upload):**
   ```bash
-  ./run_sync.sh --stream-only
+  wsl -d Ubuntu -- bash -lc "cd /home/administrator/v16-bench/apps/akatech_erp && ./run_sync.sh --skip-cloud"
   ```
-- **Local Only (Skip cloud streaming):**
+* **Skip File Downloads (Database records only):**
   ```bash
-  ./run_sync.sh --skip-cloud
-  ```
-- **Skip File Downloads (Database records only):**
-  ```bash
-  ./run_sync.sh --skip-files
+  wsl -d Ubuntu -- bash -lc "cd /home/administrator/v16-bench/apps/akatech_erp && ./run_sync.sh --skip-files"
   ```
 
-You're all set to fire it off with 1 command!
+---
+
+## 9. Current Clean Backups Reference
+
+All intermediate and redundant backups have been purged. The current active backup files ready for restore are:
+
+### v16.5 Latest Backup (Current)
+* **Database SQL:** `/home/administrator/v16-bench/sites/v16.local/private/backups/20261027_011459-v16_local-database.sql.gz` (32.6 MB)
+* **Public Files:** `/home/administrator/v16-bench/sites/v16.local/private/backups/20261027_011459-v16_local-files.tar` (290.7 MB)
+* **Private Files:** `/home/administrator/v16-bench/sites/v16.local/private/backups/20261027_011459-v16_local-private-files.tar` (4.85 GB)
+* **Site Config:** `/home/administrator/v16-bench/sites/v16.local/private/backups/20261027_011459-v16_local-site_config_backup.json`
+
+### v15 Production Backup (Archived Baseline)
+* **Database SQL:** `/home/administrator/frappe-bench/sites/akatech.local/private/backups/20261026_020035-akatech_local-database.sql.gz` (31.9 MB)
+* **Public Files:** `/home/administrator/frappe-bench/sites/akatech.local/private/backups/20261026_000724-akatech_local-files.tar` (289.9 MB)
+* **Private Files:** `/home/administrator/frappe-bench/sites/akatech.local/private/backups/20261026_000724-akatech_local-private-files.tar` (4.85 GB)
+* **Site Config:** `/home/administrator/frappe-bench/sites/akatech.local/private/backups/20261026_020035-akatech_local-site_config_backup.json`
 
 

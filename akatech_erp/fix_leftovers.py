@@ -201,7 +201,9 @@ def link_users():
 
 
 def main():
-    frappe.init(site="akatech.local")
+    import sys
+    site = os.environ.get("FRAPPE_SITE") or (sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("-") else "akatech.local")
+    frappe.init(site=site)
     frappe.connect()
     frappe.flags.in_import = True
     print("============================================================", flush=True)

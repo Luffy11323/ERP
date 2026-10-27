@@ -39,13 +39,13 @@ from concurrent.futures import ThreadPoolExecutor
 
 import frappe
 import requests
-from frappe.utils import get_datetime
+from frappe.utils import flt, get_datetime
 from requests.adapters import HTTPAdapter
 
 from akatech_erp.env import API_KEY, API_SECRET, BASE_URL
 from akatech_erp.sync_all_parallel import DOCTYPES, alter_table_add_col
 
-SITE = "akatech.local"
+DEFAULT_SITE = os.environ.get("FRAPPE_SITE", "akatech.local")
 # State + error log live INSIDE the repo (apps/akatech_erp/sync_state/) so they can be committed/pushed.
 STATE_DIR = os.environ.get(
     "MONTHLY_SYNC_STATE_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "sync_state")
@@ -258,6 +258,55 @@ def insert_with_heal(doc):
 
 
 
+def sync_item_wise_tax_details(doc):
+    """v16 backward compatibility: decompose v15 JSON item_wise_tax_detail into Item Wise Tax Detail child rows."""
+    if not frappe.db.table_exists("Item Wise Tax Detail"):
+        return
+    taxes = doc.get("taxes") or []
+    items = doc.get("items") or []
+    if not taxes or not items:
+        return
+    if doc.get("item_wise_tax_details"):
+        return
+    items_by_code = {i.item_code or i.item_name: i for i in items}
+    idx = 1
+    for tax in taxes:
+        detail_str = getattr(tax, "item_wise_tax_detail", None)
+        if not detail_str or not isinstance(detail_str, str):
+            continue
+        try:
+            parsed = json.loads(detail_str)
+        except Exception:
+            continue
+        for item_key, val in parsed.items():
+            item_row = items_by_code.get(item_key)
+            if not item_row:
+                continue
+            rate = 0.0
+            amount = 0.0
+            if isinstance(val, (list, tuple)) and len(val) >= 2:
+                rate = flt(val[0])
+                amount = flt(val[1])
+            elif isinstance(val, dict):
+                rate = flt(val.get("tax_rate", 0))
+                amount = flt(val.get("tax_amount", 0))
+            elif isinstance(val, (int, float)):
+                rate = flt(val)
+
+            taxable_amount = flt(getattr(item_row, "base_net_amount", getattr(item_row, "net_amount", 0)))
+            child = frappe.new_doc("Item Wise Tax Detail", parent_doc=doc, parentfield="item_wise_tax_details")
+            child.name = frappe.generate_hash(length=10)
+            child.item_row = item_row.name
+            child.tax_row = tax.name
+            child.rate = rate
+            child.amount = amount
+            child.taxable_amount = taxable_amount
+            child.idx = idx
+            child.docstatus = doc.docstatus
+            idx += 1
+            insert_with_heal(child)
+
+
 def write_doc(doctype, data, existed):
     name = data["name"]
     if existed:
@@ -273,6 +322,7 @@ def write_doc(doctype, data, existed):
     insert_with_heal(doc)
     for child in doc.get_all_children():
         insert_with_heal(child)
+    sync_item_wise_tax_details(doc)
 
 
 # ───────────────────────────── Files ─────────────────────────────
@@ -556,13 +606,23 @@ def main():
     ap.add_argument("--with-audit", action="store_true", help="also sync Version + Comment")
 
     ap.add_argument("--workers", type=int, default=8)
+    ap.add_argument("--site", default=DEFAULT_SITE, help="Frappe site to sync into (default: %(default)s)")
     args = ap.parse_args()
 
     lock = acquire_lock()  # noqa: F841 (kept open for the process lifetime)
     init_http(args.workers)
-    frappe.init(site=SITE)
+    target_site = args.site
+    os.environ["FRAPPE_SITE"] = target_site
+    frappe.init(site=target_site)
     frappe.connect()
     frappe.flags.in_import = True
+
+    # Ensure standard site directories exist
+    site_path = frappe.get_site_path()
+    os.makedirs(os.path.join(site_path, "public", "files"), exist_ok=True)
+    os.makedirs(os.path.join(site_path, "private", "files"), exist_ok=True)
+    os.makedirs(os.path.join(site_path, "private", "backups"), exist_ok=True)
+
     started = time.time()
 
     seen, doctypes = set(), []
