@@ -30,18 +30,54 @@
   ];
   const iconFor = (label) => { for (const [re, ic] of ICONS) if (re.test(label)) return ic; return "✨"; };
 
+  function autoRouteToHome() {
+    if (!window.frappe || !frappe.boot || !frappe.boot.akatech_premium) return;
+    const path = (window.location.pathname || "").replace(/\/+$/, "");
+    const hash = (window.location.hash || "").replace(/^#\/?/, "");
+    // If on top-level /desk with no workspace or hash, auto route to Home workspace
+    if ((path === "/desk" || path === "") && (!hash || hash === "desk")) {
+      if (frappe.set_route) {
+        frappe.set_route("workspace", "Home");
+      }
+    }
+  }
+
   function slugFromPath() {
+    // 1. Try frappe router
+    if (window.frappe && frappe.get_route) {
+      const r = frappe.get_route();
+      if (r && r.length) {
+        if (r[0] === "workspace" && r[1]) return r[1].toLowerCase();
+        if (r[0] === "private" && r[1]) return r[1].toLowerCase();
+        if (r[0] === "app" && r[1]) return r[1].toLowerCase();
+      }
+    }
+    // 2. Try window hash
+    const hash = (window.location.hash || "").replace(/^#\/?/, "").split("/").filter(Boolean);
+    if (hash.length) {
+      if (hash[0] === "workspace" && hash[1]) return hash[1].toLowerCase();
+      if (hash[0] === "private" && hash[1]) return hash[1].toLowerCase();
+      if (hash.length === 1 && hash[0] !== "desk") return hash[0].toLowerCase();
+    }
+    // 3. Fallback to pathname
     const p = decodeURIComponent(window.location.pathname).split("/").filter(Boolean);
-    if (p[0] !== "app") return null;
-    if (p[1] === "workspace" && p[2]) return p[2].toLowerCase(); // /app/workspace/crm
-    if (p[1] === "private" && p[2]) return p[2].toLowerCase(); // /app/private/home
-    if (p.length === 2) return (p[1] || "home").toLowerCase(); // /app/crm
+    if (p.length) {
+      if (p[0] === "app" || p[0] === "desk") {
+        if (p[1] === "workspace" && p[2]) return p[2].toLowerCase();
+        if (p[1] === "private" && p[2]) return p[2].toLowerCase();
+        if (p.length === 2 && p[1] !== "desk") return p[1].toLowerCase();
+        if (p.length === 1 && p[0] === "app") return "home";
+      }
+    }
     return null;
   }
   const mountPoint = () => {
     if ($(".form-layout:visible, .list-layout:visible, .report-page:visible, .standard-filter-section:visible, .form-page:visible").length) return null;
     const $m = $(".layout-main-section").filter(":visible").first();
-    return $m.length ? $m : null;
+    if ($m.length) return $m;
+    const $w = $(".workspace-page:visible, .page-container:visible, .desk-page:visible").find(".layout-main-section").filter(":visible").first();
+    if ($w.length) return $w;
+    return null;
   };
   const viewAs = () => sessionStorage.getItem(EMP_KEY) || null;
 
@@ -215,7 +251,14 @@
   $(document).ready(() => {
     if (!frappe.boot.akatech_premium) return;
     $("body").addClass("aka-premium");
-    frappe.router.on("change", () => setTimeout(() => { load(false); }, 150));
-    setTimeout(() => { load(false); }, 600);
+    autoRouteToHome();
+    frappe.router.on("change", () => {
+      autoRouteToHome();
+      setTimeout(() => { load(false); }, 150);
+    });
+    setTimeout(() => {
+      autoRouteToHome();
+      load(false);
+    }, 600);
   });
 })();
