@@ -34,10 +34,15 @@
     if (!window.frappe || !frappe.boot || !frappe.boot.akatech_premium) return;
     const path = (window.location.pathname || "").replace(/\/+$/, "");
     const hash = (window.location.hash || "").replace(/^#\/?/, "");
-    // If on top-level /desk with no workspace or hash, auto route to Home workspace
-    if ((path === "/desk" || path === "") && (!hash || hash === "desk")) {
+    // If on top-level /desk, /app, or redirected to /desk/build/workspace/Home, auto route to setup/home
+    if (
+      (path === "/desk" || path === "" || path === "/desk/build/workspace/Home" || path === "/app") &&
+      (!hash || hash === "desk")
+    ) {
       if (frappe.set_route) {
-        frappe.set_route("workspace", "Home");
+        frappe.set_route("setup", "home");
+      } else {
+        window.location.pathname = "/desk/setup/home";
       }
     }
   }
@@ -47,14 +52,18 @@
     if (window.frappe && frappe.get_route) {
       const r = frappe.get_route();
       if (r && r.length) {
+        if (["Form", "List", "Tree", "query-report", "view"].includes(r[0])) return null;
+        if (r[0] === "setup" && r[1] === "home") return "home";
         if (r[0] === "workspace" && r[1]) return r[1].toLowerCase();
         if (r[0] === "private" && r[1]) return r[1].toLowerCase();
         if (r[0] === "app" && r[1]) return r[1].toLowerCase();
+        if (r.length === 1 && r[0] !== "desk") return r[0].toLowerCase();
       }
     }
     // 2. Try window hash
     const hash = (window.location.hash || "").replace(/^#\/?/, "").split("/").filter(Boolean);
     if (hash.length) {
+      if (hash.length >= 2 && hash[0] === "setup" && hash[1] === "home") return "home";
       if (hash[0] === "workspace" && hash[1]) return hash[1].toLowerCase();
       if (hash[0] === "private" && hash[1]) return hash[1].toLowerCase();
       if (hash.length === 1 && hash[0] !== "desk") return hash[0].toLowerCase();
@@ -62,6 +71,12 @@
     // 3. Fallback to pathname
     const p = decodeURIComponent(window.location.pathname).split("/").filter(Boolean);
     if (p.length) {
+      if (p.includes("Form") || p.includes("List") || p.includes("view")) return null;
+      if (p.length >= 2 && p[p.length - 2] === "setup" && p[p.length - 1] === "home") return "home";
+      const last = p[p.length - 1].toLowerCase();
+      if (["home", "selling", "buying", "stock", "assets", "accounts", "hr", "payroll", "crm", "projects", "manufacturing"].includes(last)) {
+        return last;
+      }
       if (p[0] === "app" || p[0] === "desk") {
         if (p[1] === "workspace" && p[2]) return p[2].toLowerCase();
         if (p[1] === "private" && p[2]) return p[2].toLowerCase();
@@ -71,14 +86,20 @@
     }
     return null;
   }
+
   const mountPoint = () => {
     if ($(".form-layout:visible, .list-layout:visible, .report-page:visible, .standard-filter-section:visible, .form-page:visible").length) return null;
+    if (window.frappe && frappe.get_route) {
+      const r = frappe.get_route();
+      if (r && r.length && ["Form", "List", "Tree", "query-report", "view"].includes(r[0])) return null;
+    }
     const $m = $(".layout-main-section").filter(":visible").first();
     if ($m.length) return $m;
     const $w = $(".workspace-page:visible, .page-container:visible, .desk-page:visible").find(".layout-main-section").filter(":visible").first();
     if ($w.length) return $w;
     return null;
   };
+
   const viewAs = () => sessionStorage.getItem(EMP_KEY) || null;
 
   function compact(v) {
@@ -88,6 +109,7 @@
     if (a >= 1e5) return s + (a / 1e3).toFixed(0) + "K";
     return s + a.toLocaleString(undefined, { maximumFractionDigits: 0 });
   }
+
   function kpiHtml(k) {
     const full = k.fmt === "money" ? money(k.value) : num(k.value);
     const val = k.fmt === "money" ? "Rs " + compact(k.value) : num(k.value);
@@ -100,165 +122,168 @@
     return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
   }
 
-  function renderHero(card, $main) {
-    $(".aka-hero, .aka-ledger").remove();
-    let head, extra = "";
-    if (card.type === "self") {
-      const emp = card.employee;
-      const picker = card.privileged
-        ? `<select id="aka-emp" class="aka-select"><option value="">— View as employee —</option></select>` : "";
-      if (!emp) {
-        head = `<h3>${greeting()}, ${esc(card.user)} 👋</h3>
-          <div class="aka-sub">Your user isn't linked to an Employee record.${card.privileged ? " Pick an employee to preview their Self Service dashboard." : ""}</div>`;
-        extra = picker;
-      } else {
-        const inn = card.checkin && card.checkin.log_type === "IN";
-        head = `<h3>${greeting()}, ${esc(emp.employee_name)} 👋</h3>
-          <div class="aka-sub">${esc(emp.designation || "")} ${emp.department ? "· " + esc(emp.department) : ""}
-          ${card.checkin ? "· Last " + card.checkin.log_type + " at " + esc(card.checkin.time.slice(11, 16)) : "· Not checked in today"}</div>`;
-        extra = `<div class="aka-actions">${picker}<button class="aka-btn ${inn ? "out" : ""}" id="aka-checkin">${inn ? "⏹ Check Out" : "▶ Check In"}</button></div>`;
-      }
-    } else {
-      head = `<h3>${greeting()}, ${esc(card.user)} 👋</h3><div class="aka-sub">${esc(card.title)} — ${esc(card.subtitle)}</div>`;
+  /* Render Home Self-Service card (User Photo, Stats & My Tasks) */
+  function renderHomeSelfCard(card, $main) {
+    $(".aka-hero, .aka-ledger, .aka-home-wrapper").remove();
+
+    const empImage = card.employee_image
+      ? `<img src="${esc(card.employee_image)}" class="aka-home-avatar" alt="Avatar" />`
+      : `<div class="aka-home-avatar-initial">${esc(card.employee_name ? card.employee_name.charAt(0) : "U")}</div>`;
+
+    const checkinBtnText = card.is_checked_in ? "Check-out" : "Check-in";
+
+    let tasksHtml = `<div class="aka-no-tasks">No open tasks. You are all caught up.</div>`;
+    if (card.tasks && card.tasks.length > 0) {
+      tasksHtml = `<div class="aka-task-list">` +
+        card.tasks.map(t => `<div class="aka-task-item"><a href="/app/todo/${encodeURIComponent(t.name)}">${esc(t.description)}</a></div>`).join("") +
+        `</div>`;
     }
+
+    const picker = card.privileged
+      ? `<div style="margin-bottom:8px;"><select id="aka-emp-home" class="aka-select" style="max-width:200px;font-size:12px;padding:4px 8px;"><option value="">— Preview Employee —</option></select></div>`
+      : "";
+
+    const html = `
+      <div class="aka-home-wrapper">
+        <div class="aka-self-card">
+          <div class="aka-self-avatar-col">
+            ${empImage}
+          </div>
+          <div class="aka-self-info-col">
+            <h2 class="aka-self-name">${esc(card.employee_name)}</h2>
+            <div class="aka-self-id">Employee #: ${esc(card.employee_id)}</div>
+            <div class="aka-self-time">Logged in: <b>${esc(card.login_time)}</b></div>
+            <div class="aka-self-time">Last OUT: <b>${esc(card.last_out_time)}</b></div>
+            <div class="aka-self-attendance">Present: <b>${card.present_days} / ${card.total_work_days} work days</b></div>
+            <div class="aka-self-badges">
+              <span class="aka-badge-absent">Absent: ${card.absent_days}</span>
+              <span class="aka-badge-leaves">Leaves: ${card.leave_days}</span>
+            </div>
+            <div class="aka-self-hours">Total Hours: <b>${Number(card.total_hours).toFixed(1)} / ${Number(card.expected_hours).toFixed(1)} hrs</b></div>
+          </div>
+          <div class="aka-self-action-col">
+            ${picker}
+            <div class="aka-self-month">${esc(card.month_label)}</div>
+            <button class="aka-btn-checkin" id="aka-home-checkin-btn">${esc(checkinBtnText)}</button>
+          </div>
+        </div>
+
+        <div class="aka-tasks-card">
+          <div class="aka-tasks-head">
+            <span class="aka-tasks-title">My Tasks</span>
+            <a href="/app/todo" class="aka-tasks-viewall">View all</a>
+          </div>
+          <div class="aka-tasks-body">
+            ${tasksHtml}
+          </div>
+        </div>
+      </div>
+    `;
+
+    const $elem = $(html);
+    $main.prepend($elem);
+
+    $elem.find("#aka-home-checkin-btn").on("click", function () {
+      frappe.confirm(`Record your ${checkinBtnText} now?`, () => {
+        frappe.call({
+          method: API + "toggle_checkin",
+          args: { employee: viewAs() },
+          freeze: true
+        }).then((r) => {
+          frappe.show_alert({ message: `Successfully recorded ${r.message.log_type}`, indicator: "green" });
+          load(true);
+        });
+      });
+    });
+
+    if (card.privileged) {
+      frappe.call({ method: API + "get_employee_options" }).then((r) => {
+        const $s = $elem.find("#aka-emp-home"), cur = viewAs();
+        if (r.message && $s.length) {
+          r.message.forEach((e) => {
+            $s.append(`<option value="${esc(e.name)}"${e.name === cur ? " selected" : ""}>${esc(e.employee_name)}</option>`);
+          });
+          $s.on("change", function () {
+            const v = $(this).val();
+            if (v) sessionStorage.setItem(EMP_KEY, v);
+            else sessionStorage.removeItem(EMP_KEY);
+            load(true);
+          });
+        }
+      });
+    }
+  }
+
+  function renderHero(card, $main) {
+    $(".aka-hero, .aka-ledger, .aka-home-wrapper").remove();
+    let head = `<h3>${greeting()}, ${esc(card.user)} 👋</h3><div class="aka-sub">${esc(card.title)} — ${esc(card.subtitle)}</div>`;
     const kp = card.kpis && card.kpis.length ? `<div class="aka-kpis">${card.kpis.map(kpiHtml).join("")}</div>` : "";
-    const $hero = $(`<div class="aka-hero"><div class="aka-head"><div>${head}</div>${extra}</div>${kp}</div>`);
+    const $hero = $(`<div class="aka-hero"><div class="aka-head"><div>${head}</div></div>${kp}</div>`);
     $main.prepend($hero);
 
     $hero.on("click", ".aka-kpi", function () {
-      const r = $(this).data("route"); if (r) window.location.href = "/app/" + r;
-    });
-    $hero.find("#aka-checkin").on("click", function () {
-      frappe.confirm("Record your attendance now?", () =>
-        frappe.call({ method: API + "toggle_checkin", args: { employee: viewAs() }, freeze: true }).then((r) => {
-          frappe.show_alert({ message: `Checked ${r.message.log_type}`, indicator: "green" });
-          load(true);
-        }));
-    });
-    if (card.privileged) {
-      frappe.call({ method: API + "get_employee_options" }).then((r) => {
-        const $s = $hero.find("#aka-emp"), cur = viewAs();
-        (r.message || []).forEach((e) => $s.append(
-          `<option value="${esc(e.name)}" ${e.name === cur ? "selected" : ""}>${esc(e.employee_name)} (${esc(e.name)})</option>`));
-      });
-      $hero.on("change", "#aka-emp", function () {
-        const v = $(this).val();
-        v ? sessionStorage.setItem(EMP_KEY, v) : sessionStorage.removeItem(EMP_KEY);
-        load(true);
-      });
-    }
-    if (card.type === "self" && card.employee && slugFromPath() !== "home") renderLedger($main, $hero);
-  }
-
-  function renderLedger($main, $after) {
-    const $l = $(`<div class="aka-ledger"><div class="aka-led-head"><div><h4>📒 My Running Ledger</h4>
-      <div class="aka-muted">Salary, advances and expenses — full breakdown. Click a row to expand.</div></div>
-      <div class="aka-filters"><label>From <input type="date" id="aka-from"></label>
-      <label>To <input type="date" id="aka-to"></label><button id="aka-go">Apply</button>
-      <button id="aka-print" class="alt">🖨 Print</button></div></div>
-      <div id="aka-led-body" class="aka-muted">Loading ledger…</div></div>`);
-    $after.after($l);
-    const fetch = () => frappe.call({ method: API + "get_my_ledger",
-      args: { from_date: $l.find("#aka-from").val() || null, to_date: $l.find("#aka-to").val() || null, employee: viewAs() } })
-      .then((r) => paintLedger($l, r.message));
-    $l.find("#aka-go").on("click", fetch);
-    $l.find("#aka-print").on("click", () => {
-      const w = window.open('', '_blank');
-      const printCSS = `body{font-family:'Inter',sans-serif;margin:30px;color:#0f172a;}
-        h4, h6 {margin:0} .aka-tot{display:flex;gap:20px;margin:20px 0;border-bottom:2px solid #e2e8f0;padding-bottom:20px}
-        .aka-tot div{flex:1} .aka-tot b{display:block;font-size:16px}
-        .aka-ledger-blocks{display:flex;flex-direction:column;gap:15px}
-        .aka-led-block{border:1px solid #cbd5e1;border-radius:8px;padding:12px;page-break-inside:avoid}
-        .led-top{display:flex;justify-content:space-between;margin-bottom:6px;border-bottom:1px solid #f1f5f9;padding-bottom:6px}
-        .led-info{font-weight:bold} .led-date{color:#64748b;margin-left:10px;font-weight:normal}
-        .led-amts{display:flex;gap:15px} .led-amts .lt b{font-size:14px}
-        .led-desc{font-size:12px;color:#334155} .aka-detail{display:none} a{color:inherit;text-decoration:none}`;
-      w.document.write("<html><head><title>My Ledger</title><style>" + printCSS + "</style></head><body>" + 
-        "<h2>My Running Ledger</h2>" + $l.find("#aka-led-body").html() + "</body></html>");
-      w.document.close(); setTimeout(() => w.print(), 200);
-    });
-    fetch();
-  }
-
-  function items(list) {
-    if (!list || !list.length) return `<div class="aka-muted">—</div>`;
-    return list.map((i) => `<div class="it"><span>${esc(i.c)}</span><b>${money(i.a)}</b></div>`).join("");
-  }
-
-  function paintLedger($l, d) {
-    $l.find("#aka-from").val(d.from); $l.find("#aka-to").val(d.to);
-    const t = d.totals;
-    const tot = (label, ic, v, c) => `<div title="${esc(money(v))}"><span>${label}</span><b>${money(v)}</b></div>`;
-    let html = `<div class="aka-tot">${tot("Gross Earned", "📈", t.gross, "#6366f1")}${tot("Deductions", "➖", t.deduction, "#f43f5e")}
-      ${tot("Net Salary", "💵", t.salary, "#10b981")}${tot("Advances Paid", "💳", t.advance, "#f59e0b")}
-      ${tot("Expenses Reimbursed", "🧮", t.expense, "#0ea5e9")}${tot("Total Received", "🏆", t.total, "#a855f7")}</div>`;
-    if (!d.rows.length) { $l.find("#aka-led-body").removeClass("aka-muted").html(html + "<p>No entries in this period.</p>"); return; }
-    html += `<div class="aka-ledger-blocks">`;
-    d.rows.forEach((r, i) => {
-      const extra = r.extra ? Object.keys(r.extra).map((k) =>
-        `<div class="it"><span>${esc(k)}</span><b>${money(r.extra[k])}</b></div>`).join("") : "";
-      html += `<div class="aka-led-block" data-i="${i}">
-        <div class="led-top">
-          <div class="led-info">
-            <span class="aka-pill ${esc(r.type)}">${esc(r.type)}</span>
-            <b><a href="/app/${frappe.router.slug(r.doctype)}/${encodeURIComponent(r.ref)}">${esc(r.ref)}</a></b>
-            <span class="led-date">${esc(frappe.datetime.str_to_user(r.date))}</span>
-          </div>
-          <div class="led-amts">
-            ${r.gross ? `<span class="lg">Gross: ${money(r.gross)}</span>` : ""}
-            ${r.deduction ? `<span class="ld">Ded: ${money(r.deduction)}</span>` : ""}
-            <span class="lr">Rec: ${money(r.received)}</span>
-            <span class="lt">Total: <b>${money(r.running)}</b></span>
-          </div>
-        </div>
-        <div class="led-desc">${esc(r.desc)}</div>
-        <div class="aka-detail" id="aka-d${i}">
-          <div class="box">
-            <div><h6>${r.type === "Salary" ? "Earnings" : "Items"}</h6>${items(r.earnings)}${extra}</div>
-            <div>${r.deductions ? `<h6>Deductions</h6>${items(r.deductions)}` : ""}</div>
-          </div>
-        </div>
-      </div>`;
-    });
-    $l.find("#aka-led-body").removeClass("aka-muted").html(html + "</div>");
-    $l.find(".aka-led-block").on("click", function (e) {
-      if ($(e.target).is("a")) return;
-      $(this).find(".aka-detail").toggleClass("open");
+      const r = $(this).data("route");
+      if (r) {
+        if (window.frappe && frappe.set_route) {
+          frappe.set_route(r);
+        } else {
+          window.location.href = "/app/" + r;
+        }
+      }
     });
   }
 
   let busy = false;
   function load(force) {
-    if (!frappe.boot.akatech_premium) return;
+    if (!frappe.boot || !frappe.boot.akatech_premium) return;
     const slug = slugFromPath();
-    if (!slug) return;
-    if (!force && $(".aka-hero").data("slug") === slug) return;
-    if (busy) return; busy = true;
+    const $mainCheck = mountPoint();
+    if (!slug || !$mainCheck) {
+      $(".aka-hero, .aka-ledger, .aka-home-wrapper").remove();
+      return;
+    }
+    const currentMountedSlug = $(".aka-hero").data("slug") || $(".aka-home-wrapper").data("slug");
+    if (!force && currentMountedSlug === slug) return;
+    if (busy) return;
+    busy = true;
     let tries = 0;
     const wait = setInterval(() => {
       const $main = mountPoint();
-      if (!$main && ++tries < 40) return;
+      if (!$main && ++tries < 30) return;
       clearInterval(wait);
       if (!$main) { busy = false; return; }
       frappe.call({ method: API + "get_card", args: { slug, employee: viewAs() } }).then((r) => {
         if (slugFromPath() !== slug) return;
-        $(".aka-hero, .aka-ledger").remove();
-        if (r.message) { renderHero(r.message, $main); $(".aka-hero").data("slug", slug); }
+        $(".aka-hero, .aka-ledger, .aka-home-wrapper").remove();
+        if (r.message) {
+          if (r.message.type === "home_self") {
+            renderHomeSelfCard(r.message, $main);
+            $(".aka-home-wrapper").data("slug", slug);
+          } else {
+            renderHero(r.message, $main);
+            $(".aka-hero").data("slug", slug);
+          }
+        }
       }).always(() => { busy = false; });
-    }, 200);
+    }, 150);
   }
 
   $(document).ready(() => {
-    if (!frappe.boot.akatech_premium) return;
+    if (!frappe.boot || !frappe.boot.akatech_premium) return;
     $("body").addClass("aka-premium");
     autoRouteToHome();
     frappe.router.on("change", () => {
       autoRouteToHome();
+      const slug = slugFromPath();
+      const $m = mountPoint();
+      if (!slug || !$m) {
+        $(".aka-hero, .aka-ledger, .aka-home-wrapper").remove();
+      }
       setTimeout(() => { load(false); }, 150);
     });
     setTimeout(() => {
       autoRouteToHome();
       load(false);
-    }, 600);
+    }, 500);
   });
 })();

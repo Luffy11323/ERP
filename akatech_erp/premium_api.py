@@ -28,8 +28,8 @@ def _sum(doctype, field, filters):
     if not _can(doctype):
         return None
     try:
-        r = frappe.get_list(doctype, filters=filters, fields=[f"sum({field}) as v"])
-        return flt(r[0].v) if r else 0
+        records = frappe.get_list(doctype, filters=filters, fields=[field], limit_page_length=0, as_list=True)
+        return sum(flt(r[0]) for r in records if r and r[0] is not None)
     except Exception:
         return None
 
@@ -156,27 +156,147 @@ def _specs():
 
 
 WORKSPACE_MAP = {
-    "procurement-department": "procurement", "buying": "procurement", "aka-buying": "procurement",
-    "sales-department": "sales", "selling": "sales", "after-sales-service": "sales", "aka-selling": "sales",
-    "accounts": "accounts", "accounting": "accounts", "financial-reports": "accounts",
+    "home": "home",
+    "procurement-department": "procurement", "buying": "procurement", "aka-buying": "procurement", "purchase": "procurement", "procurement": "procurement",
+    "sales-department": "sales", "selling": "sales", "after-sales-service": "sales", "aka-selling": "sales", "sales": "sales",
+    "accounts": "accounts", "accounting": "accounts", "financial-reports": "accounts", "finance": "accounts",
     "payables": "accounts", "receivables": "accounts", "kodessy-accounting": "accounts", "kodessy-accounts": "accounts",
+    "stock": "stock", "inventory": "stock", "inventory-department": "stock", "aka-stock": "stock",
+    "assets": "assets", "fixed-assets": "assets", "asset": "assets",
+    "manufacturing": "manufacturing", "production": "manufacturing",
     "hr": "hr", "aka-hr": "hr", "rm-hr": "hr", "leaves": "hr", "recruitment": "hr",
-    "performance": "hr", "shift-&-attendance": "hr", "employee-lifecycle": "hr",
+    "performance": "hr", "shift-&-attendance": "hr", "employee-lifecycle": "hr", "hrms": "hr",
     "payroll": "payroll", "aka-payroll": "payroll", "rm-payroll": "payroll",
     "salary-payout": "payroll", "tax-&-benefits": "payroll",
-    "projects": "projects"
+    "projects": "projects", "project": "projects",
+    "crm": "crm",
 }
 
 
 def _is_privileged():
-    return frappe.session.user == "Administrator"
+    return frappe.session.user == "Administrator" or "System Manager" in frappe.get_roles()
 
 
 def _employee(employee=None):
-    fields = ["name", "employee_name", "company", "department", "designation"]
+    fields = ["name", "employee_name", "company", "department", "designation", "image", "user_id"]
     if employee and _is_privileged():
-        return frappe.db.get_value("Employee", employee, fields, as_dict=True)
-    return frappe.db.get_value("Employee", {"user_id": frappe.session.user, "status": "Active"}, fields, as_dict=True)
+        emp = frappe.db.get_value("Employee", employee, fields, as_dict=True)
+        if emp:
+            return emp
+    emp = frappe.db.get_value("Employee", {"user_id": frappe.session.user, "status": "Active"}, fields, as_dict=True)
+    if emp:
+        return emp
+    if _is_privileged():
+        # Fallback to the first active employee for preview if administrator isn't linked
+        return frappe.db.get_value("Employee", {"status": "Active"}, fields, order_by="name asc", as_dict=True)
+    return None
+
+
+def _card_home_self(employee=None):
+    emp = _employee(employee)
+    user = frappe.session.user
+    
+    if emp:
+        emp_name = emp.employee_name
+        emp_id = emp.name
+        emp_image = emp.image or frappe.db.get_value("User", emp.user_id or user, "user_image")
+    else:
+        user_doc = frappe.db.get_value("User", user, ["full_name", "user_image"], as_dict=True) or {}
+        emp_name = user_doc.get("full_name") or user
+        emp_id = "N/A"
+        emp_image = user_doc.get("user_image")
+
+    today_date = today()
+    login_time = "--"
+    last_out_time = "--"
+    is_checked_in = False
+    
+    if emp:
+        checkins = frappe.get_all(
+            "Employee Checkin",
+            filters={"employee": emp.name, "time": [">=", f"{today_date} 00:00:00"]},
+            fields=["log_type", "time"],
+            order_by="time asc"
+        )
+        if checkins:
+            first_in = next((c for c in checkins if c.log_type == "IN"), None)
+            if first_in:
+                login_time = frappe.utils.format_time(first_in.time, "hh:mm a")
+            
+            last_out = next((c for c in reversed(checkins) if c.log_type == "OUT"), None)
+            if last_out:
+                last_out_time = frappe.utils.format_time(last_out.time, "hh:mm a")
+            
+            is_checked_in = (checkins[-1].log_type == "IN")
+
+    first_day = get_first_day(today_date)
+    last_day = get_last_day(today_date)
+    month_label = frappe.utils.format_date(today_date, "MMMM YYYY")
+    
+    present_days = 0
+    absent_days = 0
+    leave_days = 0
+    total_hours = 0.0
+    total_work_days = 27
+    expected_hours = 196.0
+
+    if emp:
+        att_records = frappe.get_all(
+            "Attendance",
+            filters={
+                "employee": emp.name,
+                "attendance_date": ["between", [first_day, last_day]],
+                "docstatus": 1
+            },
+            fields=["status", "working_hours"]
+        )
+        for att in att_records:
+            if att.status in ["Present", "Work From Home"]:
+                present_days += 1
+            elif att.status == "Half Day":
+                present_days += 0.5
+            elif att.status == "Absent":
+                absent_days += 1
+            elif att.status == "On Leave":
+                leave_days += 1
+            
+            if att.working_hours:
+                total_hours += flt(att.working_hours)
+
+    tasks = []
+    try:
+        todos = frappe.get_all(
+            "ToDo",
+            filters={"owner": user, "status": "Open"},
+            fields=["name", "description", "date"],
+            order_by="date asc",
+            limit=5
+        )
+        for t in todos:
+            desc = frappe.utils.strip_html(t.description or "Task")
+            tasks.append({"name": t.name, "description": desc[:60], "date": str(t.date or "")})
+    except Exception:
+        pass
+
+    return {
+        "type": "home_self",
+        "employee": emp,
+        "employee_name": emp_name,
+        "employee_id": emp_id,
+        "employee_image": emp_image,
+        "login_time": login_time,
+        "last_out_time": last_out_time,
+        "is_checked_in": is_checked_in,
+        "month_label": month_label,
+        "present_days": int(present_days) if present_days == int(present_days) else present_days,
+        "total_work_days": total_work_days,
+        "absent_days": absent_days,
+        "leave_days": leave_days,
+        "total_hours": round(total_hours, 1),
+        "expected_hours": expected_hours,
+        "tasks": tasks,
+        "privileged": _is_privileged(),
+    }
 
 
 @frappe.whitelist()
@@ -193,16 +313,12 @@ def get_card(slug, employee=None):
     """Return hero card payload for a workspace slug (or None)."""
     if not frappe.conf.get("akatech_premium_ui", 1):
         return None
-    slug = (slug or "").lower()
+    slug = (slug or "").lower().strip()
 
-    if slug in ["employee-self-services", "self-service", "home"]:
-        emp = _employee(employee)
-        return {"type": "self", "title": "My Workspace", "employee": emp,
-                "privileged": _is_privileged(), "user": frappe.utils.get_fullname(),
-                "checkin": _last_checkin(emp.name) if emp else None,
-                "kpis": _self_kpis(emp) if emp else []}
+    if slug in ["home", "setup", "employee-self-services", "self-service"]:
+        return _card_home_self(employee)
 
-    key = WORKSPACE_MAP.get(slug)
+    key = WORKSPACE_MAP.get(slug) or (slug if slug in _specs() else None)
     if not key:
         return None
     spec = _specs().get(key)
