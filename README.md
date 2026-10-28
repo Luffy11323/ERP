@@ -1,64 +1,72 @@
 # Akatech ERP (AKA) — Master User Guide & System Hand-off
 
-> **For New Engineers & AI Agents:** Read this document top to bottom before touching anything. This is the complete journey, technical architecture, current state, and single-command execution guide for the project.
+> **For New Engineers & AI Agents:** Read this document top to bottom before touching anything. This is the complete journey, technical architecture, current state, single-command execution guide, and dual-version (v15 / v16) deployment guide.
 
 ---
 
 ## 1. Project Background & Core Mission
 
 ### The Objective
-To create an exact, 100% identical clone of the production **Radiant Medical (Pvt.) Ltd.** ERPNext v15 system (`https://radiant-medical.frappe.cloud`) and deploy it to Frappe Cloud as **Akatech ERP (AKA)**.
+To create an exact, 100% identical clone of the production **Radiant Medical (Pvt.) Ltd.** ERPNext system (`https://radiant-medical.frappe.cloud`) and deploy it to Frappe Cloud as **Akatech ERP (AKA)**, supporting both **v15 LTS** and **v16 ("Caffeine")** with instant zero-risk fallback.
 
 ### The Non-Negotiables
 - **Zero Record Loss:** All master data, transaction entries, audit logs, and child tables must match 1:1.
 - **Audit Integrity:** Historical metadata (`creation`, `modified`, `owner`, `modified_by`, and `docstatus`) must remain completely preserved—not overwritten by today's import date.
 - **Complete Attachments:** All profile pictures, uploaded receipts, PDFs, and document attachments must be downloaded and restored intact.
 - **Zero Hardcoded Secrets:** No API keys or database passwords committed to repositories.
+- **Bi-directional Compatibility (v15 ↔ v16):** Codebase changes must be 100% backwards-compatible with v15 while fully resolving all v16 strictness rules.
 
 ---
 
 ## 2. Journey & Evolution (What Has Been Done Since The Start)
 
 ### Phase 1: Custom Frappe App Architecture (`akatech_erp`)
-We built a custom Frappe application named `akatech_erp` installed on top of ERPNext v15 and HRMS on a local WSL site (`akatech.local`).
+We built a custom Frappe application named `akatech_erp` installed on top of ERPNext and HRMS.
 - **Custom Modules Created (`modules.txt`):** Akatech ERP, Sales Department, Procurement Department, Inventory Department, AKA Buying, AKA Selling, Loan Management, RM HR, Kodessy Tools, RM Payroll, AKA STOCK, Kodessy Accounts.
-- **UI & Dashboard Customizations:** Custom stylesheets, themes, and executive dashboard APIs (`premium_api.py`, `public/css/`, `public/js/`).
+- **UI & Dashboard Customizations:** Custom stylesheets, themes, executive hero cards, and dashboard APIs (`premium_api.py`, `public/css/`, `public/js/`).
 
 ### Phase 2: The Initial Bulk Parallel Migration (`sync_all_parallel.py`)
 To pull thousands of historical records from Radiant Medical, we built a high-speed parallel migration engine:
 - **Timestamp Preservation:** Standard Frappe ORM `doc.save()` updates `modified` timestamps to current time. We bypassed ORM save hooks using raw MariaDB `db_insert` calls to preserve historical audit timestamps.
-- **Dynamic Schema Self-Healing:** Because raw database injection bypasses Frappe's field hooks, custom fields from Radiant were initially missing from local tables. The script was equipped with error interception (`1054 Unknown column`) that dynamically triggers `ALTER TABLE ... ADD COLUMN` on the fly.
+- **Dynamic Schema Self-Healing:** The script intercepted MariaDB `1054 Unknown column` errors and automatically ran `ALTER TABLE ... ADD COLUMN` on the fly.
 - **Bulk Progress:** Migrated **155 DocTypes** out of 237, logging completed record IDs into `sync_progress.json`.
 
 ### Phase 3: The Production Upgrade (`monthly_sync.py`)
 To make syncing ongoing, crash-resilient, and repeatable for monthly updates, `sync_all_parallel.py` was superseded by `monthly_sync.py`:
-- **Fault Tolerance & Resumption:** Uses per-doctype atomic watermarks (`sync_state/monthly_sync_state.json`) and error logs (`sync_state/monthly_sync_errors.log`). If a run is interrupted by network failure or system shutdown, it safely resumes at the exact page it left off.
-- **Deletions Replay:** Replays Radiant's `Deleted Document` log so records deleted on live are also cleaned locally.
-- **Automated File Downloads:** Automatically finds missing public and private `File` attachments on disk and downloads them directly into `sites/akatech.local/public/files/` and `private/files/`.
-- **1:1 Count Verification:** Compares local row counts vs live Radiant counts for every DocType. If local count is lower, it triggers a forced re-sync. If orphan rows exist, it prunes them safely.
+- **Fault Tolerance & Resumption:** Uses per-doctype atomic watermarks (`sync_state/monthly_sync_state.json`) and error logs (`sync_state/monthly_sync_errors.log`). If interrupted, it resumes at the exact page.
+- **Deletions Replay:** Replays Radiant's `Deleted Document` log so records deleted on live are cleaned locally.
+- **Automated File Downloads:** Finds missing public and private `File` attachments on disk and downloads them directly into `sites/v16.local/public/files/` and `private/files/`.
+- **1:1 Count Verification:** Compares local row counts vs live Radiant counts for every DocType.
 
 ### Phase 4: Secrets Security & 2-Repo Separation
 - **Credentials:** Migrated all API tokens and URLs into `.env` (git-ignored) loaded via `akatech_erp/env.py`.
 - **Repo Separation:**
   1. **`https://github.com/Luffy11323/ERP` (Production Code):** Contains app code, sync scripts, runner, and themes. No DB dumps or secrets allowed.
   2. **`https://github.com/Luffy11323/Backup` (Data Storage):** Dedicated private repo that stores `database.sql.gz`, `public-files.tar`, and `private-files.tar`.
-- **1-Command Packaging:** Unified everything into `./run_sync.sh` (Linux/WSL) and `.\run_sync.ps1` (Windows).
+
+### Phase 5: Frappe v16 Compatibility & Cloud Hardening
+When deploying to Frappe v16 on Frappe Cloud, several new platform constraints were solved without breaking v15 compatibility:
+- **Bench Dependencies:** Added `[tool.bench.frappe-dependencies]` in `pyproject.toml` supporting `>=15.0.0, <17.0.0` for Frappe and ERPNext so Cloud benches validate cleanly.
+- **Group Account Validation Patch Bypass:** Implemented `before_migrate` hook (`patches/before_migrate.py`) to auto-clear group operating cost accounts before patch `make_workstation_operating_components` executes.
+- **Caffeine Query Builder Strictness:** Replaced raw SQL strings in `frappe.get_list(..., fields=["sum(...) as v"])` with Python-level aggregation in `premium_api.py`, eliminating `DataError: SQL functions are not allowed as strings in SELECT`.
+- **Self-Service & Tasks Card:** Rebuilt the `/home` hero section to match the green Self-Service card with real-time check-in, month attendance, hours, and My Tasks widget.
+- **Universal Route Manager:** Upgraded `premium_dashboard.js` to auto-route to `/desk/setup/home`, map all workspace slugs (`stock`, `assets`, `manufacturing`, `projects`, etc.), and dynamically unmount on Form/List/Report views.
 
 ---
 
 ## 3. Current Project Status
 
-- **Database State (100% Synced):** All 230 DocTypes (masters, setup, audit logs, and transaction entries) are completely synced and verified **1:1** against Radiant Medical in the local MariaDB (`akatech.local`).
+- **Database State (100% Synced):** All 230 DocTypes (masters, setup, audit logs, and transaction entries) are completely synced and verified **1:1** against Radiant Medical in the local MariaDB (`_v16_staging`).
 - **File Attachments:** 9,942 files (4.7 GB private files, 284 MB public files) completely downloaded and archived.
-- **Frappe Cloud Deployment:** Successfully streamed to remote Frappe Cloud MariaDB (`radiant-medical-kodessy.frappe.cloud`), legacy patch `#14-07-2023` bypassed, and `Administrator` configured with `123`.
-- **Pipeline Runner:** Fully packaged into a single interactive command (`./run_sync.sh`) that automates scraping, auto-healing, patch injection, backup creation, Frappe Cloud streaming with `pv` visual progress, and Administrator setup.
+- **Frappe Cloud Ready:** Cleanly migrates on v16 without patch crashes or user session errors; `Administrator` and `Guest` pre-configured.
+- **Single-Command Pipeline:** Fully packaged into `./run_sync.sh` (Linux/WSL) and `.\run_sync.ps1` (Windows).
 
 ---
 
 ## 4. Key Paths & Reference Architecture
 
 ### WSL (Ubuntu)
-| Component | Primary Bench (v16.5 Live) | Archived Baseline (v15) |
+| Component | Primary Bench (v16.5 Live) | Archived Baseline (v15 LTS) |
 |---|---|---|
 | Bench Root | `/home/administrator/frappe-bench/` (symlink: `v16-bench`) | `/home/administrator/frappe-bench-v15/` |
 | Custom App Repo | `/home/administrator/frappe-bench/apps/akatech_erp/` | `/home/administrator/frappe-bench-v15/apps/akatech_erp/` |
@@ -72,140 +80,127 @@ To make syncing ongoing, crash-resilient, and repeatable for monthly updates, `s
 | Credentials | `apps/akatech_erp/.env` (git-ignored) | `apps/akatech_erp/.env` (git-ignored) |
 
 ### Windows Host
-| Component | Path |
-|---|---|
-| Project Workspace | `C:\Users\Administrator\Desktop\Radiant_ERP_Backup\code\` |
-| Database Backups | `C:\Users\Administrator\Desktop\Radiant_ERP_Backup\database_backup\` |
-| Context Notes | `C:\Users\Administrator\Desktop\Radiant_ERP_Backup\AKA_ERP_Context.md` |
-| Progress Log | `C:\Users\Administrator\Desktop\Radiant_ERP_Backup\sync_progress.json` |
+| Component | Primary (v16) | Baseline (v15) |
+|---|---|---|
+| Project Code | `\\wsl$\Ubuntu\home\administrator\frappe-bench\apps\akatech_erp\` | `C:\Users\Administrator\Desktop\Radiant_ERP_Backup\code\` |
+| Database Backups | `C:\Users\Administrator\Desktop\Radiant_ERP_Backup\database_backup\16\` | `C:\Users\Administrator\Desktop\Radiant_ERP_Backup\database_backup\` |
+| Context Notes | `C:\Users\Administrator\Desktop\Radiant_ERP_Backup\AKA_ERP_Context.md` | `C:\Users\Administrator\Desktop\Radiant_ERP_Backup\AKA_ERP_Context.md` |
+| Progress Log | `C:\Users\Administrator\Desktop\Radiant_ERP_Backup\sync_progress.json` | `C:\Users\Administrator\Desktop\Radiant_ERP_Backup\sync_progress.json` |
+
+---
 
 ## 5. Universal Edge-Case Auto-Healing (`fix_leftovers.py`)
 
 During bulk syncs, remote database quirks (duplicate unique fields, child table collisions, or invalid references) can occasionally trigger database constraint errors.
 
-Rather than using brittle hardcoded fixes, the repository features a **Universal Dynamic Auto-Healer** ([`fix_leftovers.py`](file:///C:/Users/Administrator/Desktop/Radiant_ERP_Backup/code/akatech_erp/fix_leftovers.py)) that operates across **ANY DocType**:
+The **Universal Dynamic Auto-Healer** ([`fix_leftovers.py`](file:///home/administrator/frappe-bench/apps/akatech_erp/akatech_erp/fix_leftovers.py)) operates across **ANY DocType**:
 
-1. **Automated Error Log Ingestion:** Parses `sync_state/monthly_sync_errors.log` line-by-line to automatically detect whatever records failed (Employee, User, Workspace, Item, Invoices, etc.).
-2. **Dynamic Unique Constraint Resolution:** Uses Frappe metadata (`frappe.get_meta(doctype)`) to detect any field marked `unique` (CNIC, username, tax ID, registration number). If a collision occurs, it automatically disambiguates text keys or nulls duplicate numbers so MariaDB never blocks the insert.
-3. **Child Table Primary Key Clashing:** Dynamically detects child table row ID collisions (e.g. `Workspace Link`) and regenerates clean random hashes (`frappe.generate_hash()`).
-4. **Foreign Key & User Linkage Normalization:** Cleans dangling user references and links all `Employee` records to their corresponding `User` accounts.
+1. **Automated Error Log Ingestion:** Parses `sync_state/monthly_sync_errors.log` line-by-line to automatically detect whatever records failed.
+2. **Dynamic Unique Constraint Resolution:** Uses `frappe.get_meta(doctype)` to detect fields marked `unique` (CNIC, username, tax ID, registration number). Automatically disambiguates text keys or nulls duplicate numbers so MariaDB never blocks the insert.
+3. **Child Table Primary Key Clashing:** Detects child table row ID collisions (e.g. `Workspace Link`) and regenerates clean random hashes (`frappe.generate_hash()`).
+4. **Foreign Key & User Linkage Normalization:** Cleans dangling user references and links `Employee` records to their corresponding `User` accounts.
 5. **Fallback Exception Interceptor:** If an insert throws a constraint error, it intercepts the SQL key name, auto-nulls the colliding field, and retries immediately.
 
-> **Automated Execution:** `./run_sync.sh` is pre-configured to **automatically execute `fix_leftovers.py`** immediately after the main upsert phase and before taking the final backup.
+> **Automated Execution:** `./run_sync.sh` automatically executes `fix_leftovers.py` after the main upsert phase and before taking the final backup.
 > 
-> You can also run it standalone anytime:
+> Standalone execution:
 > ```bash
-> wsl -d Ubuntu -- bash -lc "cd /home/administrator/frappe-bench/sites && ../env/bin/python -m akatech_erp.fix_leftovers"
+> wsl -d Ubuntu -u root -- bash -c "cd /home/administrator/frappe-bench/sites && ../env/bin/python -m akatech_erp.fix_leftovers"
 > ```
 
 ---
 
-## 6. Deploying to Live Frappe Cloud & Migration Resolution
+## 6. Migration Bumps & Complete Resolutions (v15 & v16)
 
-### Method A: Direct Database Streaming via CLI (Recommended & Fastest)
-
-Uploading huge database dumps through the Frappe Cloud browser interface can time out, fail, or be painfully slow. You can stream the compressed `.sql.gz` dump directly into the remote Frappe Cloud MariaDB instance via CLI.
-
-#### 1-Command Automated Deploy Script:
-We provide an automated script [`deploy_db_to_cloud.sh`](file:///C:/Users/Administrator/Desktop/Radiant_ERP_Backup/code/deploy_db_to_cloud.sh) that streams the latest database and ensures the Administrator user and password are configured:
-
-```bash
-# In WSL:
-cd /home/administrator/frappe-bench/apps/akatech_erp
-./deploy_db_to_cloud.sh
-```
-
-#### Manual Direct Commands:
-If you prefer running the commands manually:
-
-1. **Stream the Database:**
-   ```bash
-   zcat /mnt/c/Users/Administrator/Desktop/Radiant_ERP_Backup/database_backup/new/20261015_145558-akatech_local-database.sql.gz | mysql -h n1-falkenstein-3.frappe.cloud -P 3306 -u fedea5f716a0953 -p6e3bacebd9fac2e4f3e4 _21953a8194dbd2c8
-   ```
-
-2. **Ensure Administrator User & Set Password to `123`:**
-   ```bash
-   mysql -h n1-falkenstein-3.frappe.cloud -P 3306 -u fedea5f716a0953 -p6e3bacebd9fac2e4f3e4 _21953a8194dbd2c8 -e "
-   INSERT INTO \`tabUser\` (
-       name, email, first_name, username, enabled, user_type, send_welcome_email, creation, modified, modified_by, owner
-   ) VALUES (
-       'Administrator', 'admin@example.com', 'Administrator', 'administrator', 1, 'System User', 0, NOW(), NOW(), 'Administrator', 'Administrator'
-   ) ON DUPLICATE KEY UPDATE enabled = 1;
-
-   INSERT IGNORE INTO \`tabHas Role\` (name, parent, parenttype, parentfield, role, creation, modified, modified_by, owner)
-   VALUES 
-   (REPLACE(UUID(),'-',''), 'Administrator', 'User', 'roles', 'System Manager', NOW(), NOW(), 'Administrator', 'Administrator'),
-   (REPLACE(UUID(),'-',''), 'Administrator', 'User', 'roles', 'Administrator', NOW(), NOW(), 'Administrator', 'Administrator');
-
-   DELETE FROM \`__Auth\` WHERE doctype = 'User' AND name = 'Administrator' AND fieldname = 'password';
-
-   INSERT INTO \`__Auth\` (doctype, name, fieldname, password, encrypted)
-   VALUES ('User', 'Administrator', 'password', '\$pbkdf2-sha256\$29000\$1BojRAhBqPWec04pBQDAuA\$wdZVtzCoeS9X7bmmzPjplfmsPWkR/8B1EqaD/LhBHGg', 0);
-   "
-   ```
-
----
-
-### Migration Bumps & How They Are Solved
-
-When migrating and restoring onto Frappe Cloud, two common bumps occur:
-
-#### Bump 1: Patch `update_closing_balances #14-07-2023` (KeyError: 1)
-- **Error:**
-  ```text
-  Executing erpnext.patches.v14_0.update_closing_balances #14-07-2023
-  KeyError: 1
-  ```
-- **Cause:** This legacy v14 patch checks for `posting_date` on `Period Closing Voucher`, which is not present in v15 (superseded by `transaction_date`).
-- **Resolution:** We inject the patch completion entry into `tabPatch Log` so `bench migrate` considers it already executed and skips it safely:
+### Bump 1: Legacy Patch `update_closing_balances #14-07-2023` (v15 & v16)
+- **Error:** `KeyError: 1` during `erpnext.patches.v14_0.update_closing_balances`.
+- **Cause:** Legacy v14 patch checks for `posting_date` on `Period Closing Voucher`, superseded by `transaction_date`.
+- **Resolution:** Injected completion entry into `tabPatch Log`:
   ```sql
-  INSERT IGNORE INTO \`tabPatch Log\` (name, patch, creation, modified, modified_by, owner)
-  VALUES (
-      REPLACE(UUID(),'-',''),
-      'erpnext.patches.v14_0.update_closing_balances #14-07-2023',
-      NOW(), NOW(), 'Administrator', 'Administrator'
-  );
+  INSERT IGNORE INTO `tabPatch Log` (name, patch, creation, modified, modified_by, owner)
+  VALUES (REPLACE(UUID(),'-',''), 'erpnext.patches.v14_0.update_closing_balances #14-07-2023', NOW(), NOW(), 'Administrator', 'Administrator');
   ```
-  *(This is already included in our latest database export).*
 
-#### Bump 2: "User Administrator does not exist" During Cloud Restore
-- **Error:**
-  ```text
-  Set Administrator Password
-  User Administrator does not exist
+### Bump 2: "User Administrator does not exist" During Restore (v15 & v16)
+- **Error:** `Set Administrator Password: User Administrator does not exist`.
+- **Cause:** Radiant's REST API `/api/resource/User` excluded `Administrator`, causing local pruning to delete it.
+- **Resolution:** Re-insert `Administrator` with `System Manager` and `Administrator` roles in `tabHas Role` and password `123` via PBKDF2 hash.
+
+### Bump 3: "Account must be an Expense ledger account" in v16 Patch
+- **Error:** `ValidationError: Row #1: Account 05-03-01-01 - Other Expences - RM must be an Expense ledger account` during `erpnext.patches.v16_0.make_workstation_operating_components`.
+- **Cause:** In ERPNext v16, `default_operating_cost_account` on Company is validated strictly as a non-group ledger account. If set to a group account from v15, migration fails.
+- **Resolution:** Handled via hook in `akatech_erp/hooks.py`:
+  ```python
+  before_migrate = ["akatech_erp.patches.before_migrate.clear_invalid_operating_cost_accounts"]
   ```
-- **Cause:** During pruning of local records not found in the remote API query, `Administrator` was cleaned up locally because Radiant Medical's REST API `/api/resource/User` did not expose the default `Administrator` account. When Frappe Cloud attempts to run its automated `Set Administrator Password` post-restore routine, it fails if the record is missing.
-- **Resolution:** We re-insert `Administrator` with the `System Manager` and `Administrator` roles and set the password to `123` (using the native Frappe PBKDF2 hash).
-- **Default Credentials:**
-  - **Username / Email:** `Administrator` (or `admin@example.com`)
-  - **Password:** `123`
+  This automatically clears invalid group operating cost accounts before the patch runs.
+
+### Bump 4: "User Guest not found" during Session Initialization in v16
+- **Error:** `frappe.exceptions.DoesNotExistError: User Guest not found`.
+- **Cause:** Frappe v16 strict authentication checks for `Guest` in `tabUser` on every unauthenticated request.
+- **Resolution:** Ensured `Guest` user exists with `Guest` role in `tabUser` and `tabHas Role`, and protected it in sync scripts.
+
+### Bump 5: Strict SQL Syntax Restrictions in v16
+- **Error:** `SQL functions are not allowed as strings in SELECT: sum(...) as v. Use dict syntax like {'COUNT': '*'} instead.`
+- **Cause:** Frappe v16 Caffeine AST parser blocks string expressions in `frappe.get_list(..., fields=[...])`.
+- **Resolution:** In `akatech_erp/premium_api.py`, `_sum()` retrieves numeric fields directly and aggregates in Python:
+  ```python
+  records = frappe.get_list(doctype, filters=filters, fields=[field], limit_page_length=0, as_list=True)
+  return sum(flt(r[0]) for r in records if r and r[0] is not None)
+  ```
+  Works seamlessly on both v15 and v16.
+
+### Bump 6: URL Routing & Auto-Redirect to Setup Home in v16
+- **Problem:** Navigating to `/desk` or clicking the workspace icon redirected to `/desk/build/workspace/Home` rather than `/desk/setup/home`.
+- **Resolution:** In `premium_dashboard.js`, `autoRouteToHome()` intercepts top-level desk routes and routes cleanly to `setup/home`:
+  ```javascript
+  if ((path === "/desk" || path === "" || path === "/desk/build/workspace/Home" || path === "/app") && (!hash || hash === "desk")) {
+    frappe.set_route("setup", "home");
+  }
+  ```
 
 ---
 
-### Method B: Browser Upload via Frappe Cloud Dashboard
+## 7. Dual-Version Deployment & Fallback Guide
 
-1. Navigate to your **Frappe Cloud Dashboard → Sites → Your Site → Restore with files**.
-2. Upload the 3 backup files (`*-database.sql.gz`, `*-files.tar`, `*-private-files.tar`).
-3. Click **Restore**, click **Clear Cache**, and run **Migrate**.
-4. Deploy the latest `main` branch of `https://github.com/Luffy11323/ERP`.
-5. All records, attachments, users, and dashboards will be live and 100% identical to Radiant Medical.
+The codebase and backups support running on **v16** and safely falling back to **v15 LTS** at any time.
 
-## 7. Architecture Roadmap & Future TODOs
+### Deploying on Frappe v16 (Current Production Bench)
 
-While the current setup provides exceptional 1:1 data fidelity and crash-resilience, the following improvements are planned for future scale:
+1. **Bench Setup on Frappe Cloud:**
+   - Bench version: Frappe v16 / ERPNext v16 / HRMS v16.
+   - App: `https://github.com/Luffy11323/ERP` (`main` branch).
+2. **Database & File Restore:**
+   - Go to **Sites → Your Site → Restore with files**.
+   - Upload the latest v16 backup files from `C:\Users\Administrator\Desktop\Radiant_ERP_Backup\database_backup\16\`:
+     - Database: `20261028_080337-v16_local-database.sql.gz`
+     - Public Files: `20261027_011459-v16_local-files.tar`
+     - Private Files: `20261027_011459-v16_local-private-files.tar`
+3. **Execute Migrate & Deploy:**
+   - Click **Restore**, then **Migrate**.
+   - Deploy latest `main` commit.
+   - Access URL: `https://<your-site>.frappe.cloud/desk/setup/home`.
 
-- [ ] **Direct DB Streaming Option (Ultra-Fast Initial Extraction):**
-  - *Current:* Pulls records over Frappe Cloud HTTPS REST API (`api/resource/DocType`) with controlled concurrency to respect rate limits.
-  - *Enhancement:* If direct read-only MySQL/MariaDB credentials are granted on Radiant Medical's cloud host, add a direct `mysqldump` / MariaDB tunnel mode to complete initial bulk migrations in minutes rather than hours.
-- [ ] **Git LFS or Object Storage (S3 / R2 / Releases) for Backups > 100 MB:**
-  - *Current:* Backups are committed to `Luffy11323/Backup`. GitHub enforces a hard limit of 100 MB per file.
-  - *Enhancement:* As attachment tars and database dumps grow, update `push_backup.sh` to leverage **Git LFS (Large File Storage)** or stream archives directly to Cloudflare R2 / AWS S3 / GitHub Release assets.
-- [ ] **Automated Headless Scheduling (Cron / Systemd Timer):**
-  - *Current:* The monthly sync is triggered manually on-demand via `./run_sync.sh --with-backup`.
-  - *Enhancement:* Set up a WSL systemd timer or cron job (`0 0 1 * *`) to automatically execute incremental updates on the 1st of every month at midnight.
-- [ ] **Adaptive Worker Concurrency:**
-  - *Current:* Uses static worker concurrency to prevent HTTP 429 (Too Many Requests).
-  - *Enhancement:* Implement dynamic concurrency back-off that automatically throttles up when response latencies are low and scales down if rate limiting is encountered.
+---
+
+### Safe Fallback to Frappe v15 (Zero Risk Procedure)
+
+If you ever need to fall back to Frappe v15:
+
+1. **Bench Setup on Frappe Cloud:**
+   - Create or switch to a **v15 Bench** (Frappe v15 / ERPNext v15 / HRMS v15).
+   - Add app `https://github.com/Luffy11323/ERP` (`main` branch). *(The app's `pyproject.toml` supports `frappe = ">=15.0.0, <17.0.0"` and runs identically on v15).*
+2. **Database & File Restore:**
+   - In Frappe Cloud, open your site under the v15 bench.
+   - Upload the archived v15 baseline backup files from `C:\Users\Administrator\Desktop\Radiant_ERP_Backup\database_backup\`:
+     - Database: `20261026_020035-akatech_local-database.sql.gz` (or `20261015_145558-akatech_local-database.sql.gz`)
+     - Public Files: `20261026_000724-akatech_local-files.tar`
+     - Private Files: `20261026_000724-akatech_local-private-files.tar`
+3. **Execute Migrate & Clear Cache:**
+   - Click **Restore** and run **Migrate**.
+   - Log in with `Administrator` / `123`.
+4. **Local WSL v15 Environment:**
+   - The original v15 bench remains fully intact at `/home/administrator/frappe-bench-v15/` on site `akatech.local` with database `_9b9681f70464fc6f`.
 
 ---
 
@@ -213,9 +208,7 @@ While the current setup provides exceptional 1:1 data fidelity and crash-resilie
 
 Everything is unified into a single command: `./run_sync.sh`.
 
-### Full Monthly Scrape & Direct Cloud Deployment (Scrape -> Auto-Heal -> Backup -> Stream to Frappe Cloud)
-
-To run the complete pipeline from live Radiant v15 scraping to auto-healing, backup generation, and direct MariaDB cloud streaming in one step:
+### Full Monthly Scrape & Direct Cloud Deployment (Scrape -> Auto-Heal -> Backup -> Stream to Cloud)
 
 * **Primary 1-Command Runner (v16.5 Live Bench):**
   ```bash
@@ -229,67 +222,56 @@ To run the complete pipeline from live Radiant v15 scraping to auto-healing, bac
 
 ---
 
-### What Happens When You Run This Command:
-
-1. **Automatic `.env` & Credentials Check:**
-   - Validates Radiant Medical API keys and Frappe Cloud MariaDB destination parameters.
-
-2. **Scraping & 1:1 Parity Sync:**
-   - Replays deletions from live Radiant Medical.
-   - Incrementally scrapes new and updated records across all DocTypes.
-   - For v16, automatically decomposes legacy JSON tax entries into `Item Wise Tax Detail` child rows.
-   - Downloads any missing public and private file attachments.
-   - Prunes orphan records and verifies row counts 1:1.
-
-3. **Universal Auto-Healing (`fix_leftovers.py`):**
-   - Automatically heals any duplicate CNIC, duplicate usernames, child table key clashes, or dangling user links.
-
-4. **Patch Fix Injection (`#14-07-2023`):**
-   - Injects the legacy ERPNext v14 patch record into `tabPatch Log` so Frappe Cloud migration won't crash with `KeyError: 1`.
-
-5. **Fresh Backup Generation:**
-   - Runs `bench backup --with-files` to create the complete backup quartet (`*-database.sql.gz`, `*-files.tar`, `*-private-files.tar`, `*-site_config_backup.json`).
-
-6. **Direct Frappe Cloud Database Streaming (with live progress):**
-   - Reads the latest `.sql.gz` backup and streams it directly into your remote Frappe Cloud MariaDB instance (`n1-falkenstein-3.frappe.cloud`).
-   - Uses `pv` to display real-time upload speed and data transfer progress.
-
-7. **Automated Administrator User & Password Setup:**
-   - Automatically creates the `Administrator` user in `tabUser`, assigns `System Manager` and `Administrator` roles in `tabHas Role`, and sets the password to `123` via PBKDF2 hash.
-
----
-
-### Additional Command Variations:
+### Command Variations:
 
 * **Stream Latest Local DB Only (Skip scraping, immediately deploy to Cloud):**
   ```bash
-  wsl -d Ubuntu -- bash -lc "cd /home/administrator/v16-bench/apps/akatech_erp && ./run_sync.sh --stream-only"
+  wsl -d Ubuntu -- bash -lc "cd /home/administrator/frappe-bench/apps/akatech_erp && ./run_sync.sh --stream-only"
   ```
 * **Local Run Only (Scrape + Auto-heal + Backup locally without cloud upload):**
   ```bash
-  wsl -d Ubuntu -- bash -lc "cd /home/administrator/v16-bench/apps/akatech_erp && ./run_sync.sh --skip-cloud"
+  wsl -d Ubuntu -- bash -lc "cd /home/administrator/frappe-bench/apps/akatech_erp && ./run_sync.sh --skip-cloud"
   ```
 * **Skip File Downloads (Database records only):**
   ```bash
-  wsl -d Ubuntu -- bash -lc "cd /home/administrator/v16-bench/apps/akatech_erp && ./run_sync.sh --skip-files"
+  wsl -d Ubuntu -- bash -lc "cd /home/administrator/frappe-bench/apps/akatech_erp && ./run_sync.sh --skip-files"
   ```
 
 ---
 
-## 9. Current Clean Backups Reference
+## 9. Clean Backups Reference Directory
 
-All intermediate and redundant backups have been purged. The current active backup files ready for restore are:
+All redundant intermediate files have been purged. The active backup sets ready for immediate restore are:
 
-### v16.5 Latest Backup (Current)
-* **Database SQL:** `/home/administrator/v16-bench/sites/v16.local/private/backups/20261027_011459-v16_local-database.sql.gz` (32.6 MB)
-* **Public Files:** `/home/administrator/v16-bench/sites/v16.local/private/backups/20261027_011459-v16_local-files.tar` (290.7 MB)
-* **Private Files:** `/home/administrator/v16-bench/sites/v16.local/private/backups/20261027_011459-v16_local-private-files.tar` (4.85 GB)
-* **Site Config:** `/home/administrator/v16-bench/sites/v16.local/private/backups/20261027_011459-v16_local-site_config_backup.json`
+### v16.5 Latest Backup (Current Production Target)
+* **Location on Host:** `C:\Users\Administrator\Desktop\Radiant_ERP_Backup\database_backup\16\`
+* **Location in WSL:** `/home/administrator/frappe-bench/sites/v16.local/private/backups/`
+* **Files:**
+  - **Database SQL:** `20261028_080337-v16_local-database.sql.gz` (32.6 MB)
+  - **Public Files:** `20261027_011459-v16_local-files.tar` (290.7 MB)
+  - **Private Files:** `20261027_011459-v16_local-private-files.tar` (4.85 GB)
+  - **Site Config:** `20261028_080337-v16_local-site_config_backup.json`
 
-### v15 Production Backup (Archived Baseline)
-* **Database SQL:** `/home/administrator/frappe-bench/sites/akatech.local/private/backups/20261026_020035-akatech_local-database.sql.gz` (31.9 MB)
-* **Public Files:** `/home/administrator/frappe-bench/sites/akatech.local/private/backups/20261026_000724-akatech_local-files.tar` (289.9 MB)
-* **Private Files:** `/home/administrator/frappe-bench/sites/akatech.local/private/backups/20261026_000724-akatech_local-private-files.tar` (4.85 GB)
-* **Site Config:** `/home/administrator/frappe-bench/sites/akatech.local/private/backups/20261026_020035-akatech_local-site_config_backup.json`
+### v15 Production Backup (Archived Baseline / Fallback)
+* **Location on Host:** `C:\Users\Administrator\Desktop\Radiant_ERP_Backup\database_backup\`
+* **Location in WSL:** `/home/administrator/frappe-bench-v15/sites/akatech.local/private/backups/`
+* **Files:**
+  - **Database SQL:** `20261026_020035-akatech_local-database.sql.gz` (31.9 MB)
+  - **Public Files:** `20261026_000724-akatech_local-files.tar` (289.9 MB)
+  - **Private Files:** `20261026_000724-akatech_local-private-files.tar` (4.85 GB)
+  - **Site Config:** `20261026_020035-akatech_local-site_config_backup.json`
 
+---
 
+## 10. Credentials & Quick Reference
+
+| Resource | Value | Notes |
+|---|---|---|
+| Live Source ERP | `https://radiant-medical.frappe.cloud` | Source production instance |
+| Target Cloud ERP | `https://radiant-medical-kodessy.f.frappe.cloud` | Target deployment |
+| Admin Username | `Administrator` (or `admin@example.com`) | Pre-configured on both v15 & v16 |
+| Admin Password | `123` | Native PBKDF2 hash |
+| Code Repository | `https://github.com/Luffy11323/ERP` | `main` branch |
+| Data Repository | `https://github.com/Luffy11323/Backup` | Private backup repository |
+| Default Target URL (v16) | `/desk/setup/home` | Auto-routed by `premium_dashboard.js` |
+| Default Target URL (v15) | `/app/home` or `/app/workspace/Home` | Standard v15 route |
