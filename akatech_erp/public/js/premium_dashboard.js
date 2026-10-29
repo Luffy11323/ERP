@@ -135,7 +135,16 @@
     let tasksHtml = `<div class="aka-no-tasks">No open tasks. You are all caught up.</div>`;
     if (card.tasks && card.tasks.length > 0) {
       tasksHtml = `<div class="aka-task-list">` +
-        card.tasks.map(t => `<div class="aka-task-item"><a href="/app/todo/${encodeURIComponent(t.name)}">${esc(t.description)}</a></div>`).join("") +
+        card.tasks.map(t => {
+          const typeBadge = t.ref_type ? `<span class="aka-task-badge">${esc(t.ref_type)}</span>` : "";
+          const refText = t.ref_name ? `<b class="aka-task-ref">${esc(t.ref_name)}</b> ` : "";
+          const desc = esc(t.description || t.name);
+          return `<div class="aka-task-item">
+            <a href="${esc(t.url || '/app/todo/' + t.name)}">
+              <div class="aka-task-line">${typeBadge}${refText}<span class="aka-task-desc">${desc}</span></div>
+            </a>
+          </div>`;
+        }).join("") +
         `</div>`;
     }
 

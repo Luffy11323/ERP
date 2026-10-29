@@ -268,13 +268,29 @@ def _card_home_self(employee=None):
         todos = frappe.get_all(
             "ToDo",
             filters={"owner": user, "status": "Open"},
-            fields=["name", "description", "date"],
-            order_by="date asc",
+            fields=["name", "description", "reference_type", "reference_name", "date"],
+            order_by="date desc, creation desc",
             limit=5
         )
         for t in todos:
-            desc = frappe.utils.strip_html(t.description or "Task")
-            tasks.append({"name": t.name, "description": desc[:60], "date": str(t.date or "")})
+            desc = frappe.utils.strip_html(t.description or "")
+            ref_type = t.reference_type or ""
+            ref_name = t.reference_name or ""
+            
+            # Direct link to the document if referenced, otherwise to ToDo
+            if ref_type and ref_name:
+                url = f"/app/{frappe.router.slug(ref_type)}/{ref_name}"
+            else:
+                url = f"/app/todo/{t.name}"
+
+            tasks.append({
+                "name": t.name,
+                "ref_type": ref_type,
+                "ref_name": ref_name,
+                "description": desc[:70] if desc else ref_name,
+                "url": url,
+                "date": str(t.date or "")
+            })
     except Exception:
         pass
 
@@ -365,6 +381,35 @@ def _last_checkin(employee):
     return None
 
 
+def _sync_checkin_series():
+    """Ensure tabSeries for Employee Checkin is at least the highest number existing in DB."""
+    try:
+        now = frappe.utils.now_datetime()
+        prefix = f"EMP-CKIN-{now.strftime('%m-%Y')}-"
+        
+        # Get highest existing name with this prefix
+        max_name = frappe.db.sql(
+            """SELECT name FROM `tabEmployee Checkin`
+               WHERE name LIKE %s
+               ORDER BY name DESC LIMIT 1""",
+            (f"{prefix}%",)
+        )
+        if max_name and max_name[0] and max_name[0][0]:
+            name_str = str(max_name[0][0])
+            num_str = name_str.replace(prefix, "")
+            if num_str.isdigit():
+                max_val = int(num_str)
+                frappe.db.sql(
+                    """INSERT INTO `tabSeries` (name, current)
+                       VALUES (%s, %s)
+                       ON DUPLICATE KEY UPDATE current = GREATEST(current, %s)""",
+                    (prefix, max_val, max_val)
+                )
+                frappe.db.commit()
+    except Exception:
+        pass
+
+
 @frappe.whitelist()
 def toggle_checkin(employee=None):
     """Create an IN/OUT Employee Checkin for the logged-in employee."""
@@ -373,10 +418,32 @@ def toggle_checkin(employee=None):
         frappe.throw("No active Employee is linked to your user.")
     last = _last_checkin(emp.name)
     log_type = "OUT" if last and last["log_type"] == "IN" else "IN"
-    doc = frappe.get_doc({"doctype": "Employee Checkin", "employee": emp.name,
-                          "log_type": log_type, "time": frappe.utils.now_datetime()})
-    doc.insert()
-    return {"log_type": log_type, "time": str(doc.time)}
+
+    _sync_checkin_series()
+
+    prefix = f"EMP-CKIN-{frappe.utils.now_datetime().strftime('%m-%Y')}-"
+    for _ in range(5):
+        try:
+            doc = frappe.get_doc({
+                "doctype": "Employee Checkin",
+                "employee": emp.name,
+                "log_type": log_type,
+                "time": frappe.utils.now_datetime()
+            })
+            doc.insert()
+            frappe.db.commit()
+            return {"log_type": log_type, "time": str(doc.time)}
+        except frappe.DuplicateEntryError:
+            # Advance series counter and retry next number
+            frappe.db.sql(
+                """INSERT INTO `tabSeries` (name, current)
+                   VALUES (%s, 1)
+                   ON DUPLICATE KEY UPDATE current = current + 1""",
+                (prefix,)
+            )
+            frappe.db.commit()
+
+    frappe.throw("Unable to register checkin. Please try again.")
 
 
 @frappe.whitelist()
