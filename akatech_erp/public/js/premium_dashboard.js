@@ -1,12 +1,13 @@
-/* Radiant premium dashboards: hero cards on main workspaces + Self Service ledger */
+/* Radiant premium dashboards: hero cards on main workspaces + Self Service home card */
 (function () {
+  console.log("[Akatech Premium] Initializing dashboard module v16.5...");
+
   // Patch Frappe play_sound to prevent annoying phantom error sounds
   if (window.frappe && frappe.utils && frappe.utils.play_sound) {
     const _original_play_sound = frappe.utils.play_sound;
     frappe.utils.play_sound = function(name) {
       if (name === "error") {
         if ($('.desk-alert:visible, .msgprint-dialog:visible, .modal:visible, .toast:visible').length === 0) {
-          console.warn("Muted phantom error sound");
           return;
         }
       }
@@ -14,89 +15,88 @@
     };
   }
 
-  const esc = (s) => frappe.utils.escape_html(String(s == null ? "" : s));
-  const money = (v) => format_currency(v || 0);
+  // Automatic redirect away from /desk or /desk/build/workspace/Home to /desk/setup/home
+  function enforceCorrectHomeUrl() {
+    try {
+      const p = (window.location.pathname || "").toLowerCase().replace(/\/+$/, "");
+      if (p.includes("build/workspace/home") || p === "/desk" || p === "/app" || p === "") {
+        console.log("[Akatech Premium] Redirecting from", p, "to /desk/setup/home");
+        if (window.location.replace) {
+          window.location.replace("/desk/setup/home");
+        } else {
+          window.location.href = "/desk/setup/home";
+        }
+        return true;
+      }
+    } catch (e) {
+      console.error("[Akatech Premium] URL redirect error:", e);
+    }
+    return false;
+  }
+
+  // Execute redirect immediately on script load
+  enforceCorrectHomeUrl();
+
+  const esc = (s) => (window.frappe && frappe.utils ? frappe.utils.escape_html(String(s == null ? "" : s)) : String(s == null ? "" : s));
+  const money = (v) => (typeof format_currency === "function" ? format_currency(v || 0) : "Rs " + (v || 0).toLocaleString());
   const num = (v) => (v || 0).toLocaleString();
   const API = "akatech_erp.premium_api.";
   const EMP_KEY = "aka_view_as_employee";
 
-  const ICONS = [
-    [/sales|order|quotation|lead|opportunit/i, "🛒"], [/purchase|po|procure/i, "📦"],
-    [/receiv/i, "💰"], [/payable/i, "🧾"], [/overdue/i, "⏰"], [/draft|pending/i, "📝"],
-    [/present|active emp|employee/i, "🧑‍💼"], [/absent/i, "🚫"], [/leave/i, "🏖️"],
-    [/net pay|pay|salary|slip/i, "💵"], [/deduct/i, "➖"], [/advance/i, "💳"], [/claim|expense/i, "🧮"],
-    [/item|stock|delivery|receipt|material/i, "🏷️"], [/project|task/i, "📌"], [/asset/i, "🏢"],
-    [/work order|bom/i, "🏭"], [/billed|value|invoice/i, "📈"],
-  ];
-  const iconFor = (label) => { for (const [re, ic] of ICONS) if (re.test(label)) return ic; return "✨"; };
-
-  function autoRouteToHome() {
-    if (!window.frappe || !frappe.boot || !frappe.boot.akatech_premium) return;
-    const path = (window.location.pathname || "").replace(/\/+$/, "");
-    const hash = (window.location.hash || "").replace(/^#\/?/, "");
-    // If on top-level /desk, /app, or redirected to /desk/build/workspace/Home, auto route to setup/home
-    if (
-      (path === "/desk" || path === "" || path === "/desk/build/workspace/Home" || path === "/app") &&
-      (!hash || hash === "desk")
-    ) {
-      if (frappe.set_route) {
-        frappe.set_route("setup", "home");
-      } else {
-        window.location.pathname = "/desk/setup/home";
-      }
-    }
-  }
-
   function slugFromPath() {
-    // 1. Try frappe router
+    // 1. Check router route if available
     if (window.frappe && frappe.get_route) {
       const r = frappe.get_route();
       if (r && r.length) {
         if (["Form", "List", "Tree", "query-report", "view"].includes(r[0])) return null;
-        if (r[0] === "setup" && r[1] === "home") return "home";
-        if (r[0] === "workspace" && r[1]) return r[1].toLowerCase();
-        if (r[0] === "private" && r[1]) return r[1].toLowerCase();
-        if (r[0] === "app" && r[1]) return r[1].toLowerCase();
-        if (r.length === 1 && r[0] !== "desk") return r[0].toLowerCase();
+        const rLower = r.map(x => String(x).toLowerCase());
+        if (rLower.includes("home")) return "home";
+        for (let s of ["selling", "buying", "stock", "assets", "accounts", "hr", "payroll", "crm", "projects", "manufacturing", "procurement", "sales"]) {
+          if (rLower.includes(s)) return s;
+        }
       }
     }
-    // 2. Try window hash
-    const hash = (window.location.hash || "").replace(/^#\/?/, "").split("/").filter(Boolean);
-    if (hash.length) {
-      if (hash.length >= 2 && hash[0] === "setup" && hash[1] === "home") return "home";
-      if (hash[0] === "workspace" && hash[1]) return hash[1].toLowerCase();
-      if (hash[0] === "private" && hash[1]) return hash[1].toLowerCase();
-      if (hash.length === 1 && hash[0] !== "desk") return hash[0].toLowerCase();
+    // 2. Check window location pathname
+    const pathname = decodeURIComponent(window.location.pathname || "").toLowerCase();
+    if (pathname.includes("/form/") || pathname.includes("/list/") || pathname.includes("/view/")) {
+      return null;
     }
-    // 3. Fallback to pathname
-    const p = decodeURIComponent(window.location.pathname).split("/").filter(Boolean);
-    if (p.length) {
-      if (p.includes("Form") || p.includes("List") || p.includes("view")) return null;
-      if (p.length >= 2 && p[p.length - 2] === "setup" && p[p.length - 1] === "home") return "home";
-      const last = p[p.length - 1].toLowerCase();
-      if (["home", "selling", "buying", "stock", "assets", "accounts", "hr", "payroll", "crm", "projects", "manufacturing"].includes(last)) {
-        return last;
-      }
-      if (p[0] === "app" || p[0] === "desk") {
-        if (p[1] === "workspace" && p[2]) return p[2].toLowerCase();
-        if (p[1] === "private" && p[2]) return p[2].toLowerCase();
-        if (p.length === 2 && p[1] !== "desk") return p[1].toLowerCase();
-        if (p.length === 1 && p[0] === "app") return "home";
-      }
+    if (pathname.includes("home")) return "home";
+    for (let s of ["selling", "buying", "stock", "assets", "accounts", "hr", "payroll", "crm", "projects", "manufacturing", "procurement", "sales"]) {
+      if (pathname.includes("/" + s)) return s;
+    }
+    // 3. Check hash
+    const hash = decodeURIComponent(window.location.hash || "").toLowerCase();
+    if (hash.includes("home")) return "home";
+    for (let s of ["selling", "buying", "stock", "assets", "accounts", "hr", "payroll", "crm", "projects", "manufacturing", "procurement", "sales"]) {
+      if (hash.includes(s)) return s;
     }
     return null;
   }
 
   const mountPoint = () => {
-    if ($(".form-layout:visible, .list-layout:visible, .report-page:visible, .standard-filter-section:visible, .form-page:visible").length) return null;
+    // Hide cards on form/list/report views
+    if ($(".form-layout:visible, .list-layout:visible, .report-page:visible").length) return null;
     if (window.frappe && frappe.get_route) {
       const r = frappe.get_route();
       if (r && r.length && ["Form", "List", "Tree", "query-report", "view"].includes(r[0])) return null;
     }
-    const $m = $(".layout-main-section").filter(":visible").first();
-    if ($m.length) return $m;
-    const $w = $(".workspace-page:visible, .page-container:visible, .desk-page:visible").find(".layout-main-section").filter(":visible").first();
-    if ($w.length) return $w;
+
+    const selectors = [
+      ".layout-main-section",
+      ".editor-js-container",
+      "#editorjs",
+      ".page-main-content",
+      ".workspace-page",
+      ".desk-page",
+      ".page-container"
+    ];
+    for (const sel of selectors) {
+      const $el = $(sel).filter(":visible").first();
+      if ($el.length) return $el;
+    }
+    const $any = $(".page-container:visible, .desk-page:visible, #editorjs").first();
+    if ($any.length) return $any;
     return null;
   };
 
@@ -144,7 +144,7 @@
       : "";
 
     const html = `
-      <div class="aka-home-wrapper">
+      <div class="aka-home-wrapper" data-slug="home">
         <div class="aka-self-card">
           <div class="aka-self-avatar-col">
             ${empImage}
@@ -181,7 +181,11 @@
     `;
 
     const $elem = $(html);
-    $main.prepend($elem);
+    if ($main.find("#editorjs").length) {
+      $main.find("#editorjs").before($elem);
+    } else {
+      $main.prepend($elem);
+    }
 
     $elem.find("#aka-home-checkin-btn").on("click", function () {
       frappe.confirm(`Record your ${checkinBtnText} now?`, () => {
@@ -214,12 +218,17 @@
     }
   }
 
-  function renderHero(card, $main) {
+  function renderHero(card, $main, slug) {
     $(".aka-hero, .aka-ledger, .aka-home-wrapper").remove();
     let head = `<h3>${greeting()}, ${esc(card.user)} 👋</h3><div class="aka-sub">${esc(card.title)} — ${esc(card.subtitle)}</div>`;
     const kp = card.kpis && card.kpis.length ? `<div class="aka-kpis">${card.kpis.map(kpiHtml).join("")}</div>` : "";
-    const $hero = $(`<div class="aka-hero"><div class="aka-head"><div>${head}</div></div>${kp}</div>`);
-    $main.prepend($hero);
+    const $hero = $(`<div class="aka-hero" data-slug="${esc(slug)}"><div class="aka-head"><div>${head}</div></div>${kp}</div>`);
+    
+    if ($main.find("#editorjs").length) {
+      $main.find("#editorjs").before($hero);
+    } else {
+      $main.prepend($hero);
+    }
 
     $hero.on("click", ".aka-kpi", function () {
       const r = $(this).data("route");
@@ -235,7 +244,7 @@
 
   let busy = false;
   function load(force) {
-    if (!frappe.boot || !frappe.boot.akatech_premium) return;
+    enforceCorrectHomeUrl();
     const slug = slugFromPath();
     const $mainCheck = mountPoint();
     if (!slug || !$mainCheck) {
@@ -258,10 +267,8 @@
         if (r.message) {
           if (r.message.type === "home_self") {
             renderHomeSelfCard(r.message, $main);
-            $(".aka-home-wrapper").data("slug", slug);
           } else {
-            renderHero(r.message, $main);
-            $(".aka-hero").data("slug", slug);
+            renderHero(r.message, $main, slug);
           }
         }
       }).always(() => { busy = false; });
@@ -269,21 +276,24 @@
   }
 
   $(document).ready(() => {
-    if (!frappe.boot || !frappe.boot.akatech_premium) return;
     $("body").addClass("aka-premium");
-    autoRouteToHome();
-    frappe.router.on("change", () => {
-      autoRouteToHome();
-      const slug = slugFromPath();
-      const $m = mountPoint();
-      if (!slug || !$m) {
-        $(".aka-hero, .aka-ledger, .aka-home-wrapper").remove();
-      }
-      setTimeout(() => { load(false); }, 150);
-    });
+    enforceCorrectHomeUrl();
+
+    if (window.frappe && frappe.router) {
+      frappe.router.on("change", () => {
+        enforceCorrectHomeUrl();
+        const slug = slugFromPath();
+        const $m = mountPoint();
+        if (!slug || !$m) {
+          $(".aka-hero, .aka-ledger, .aka-home-wrapper").remove();
+        }
+        setTimeout(() => { load(false); }, 150);
+      });
+    }
+
     setTimeout(() => {
-      autoRouteToHome();
+      enforceCorrectHomeUrl();
       load(false);
-    }, 500);
+    }, 300);
   });
 })();
