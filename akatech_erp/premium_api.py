@@ -41,6 +41,8 @@ def _month():
 # kind: n = count, s = sum(field).  fmt: num | money
 def _specs():
     m = _month()
+    cur_year = getdate(today()).year
+    y = ["between", [f"{cur_year}-01-01", f"{cur_year}-12-31"]]
     return {
         "home": {
             "title": "Business Pulse",
@@ -61,6 +63,13 @@ def _specs():
                 ("Draft POs", "Purchase Order", "n", None, {"docstatus": 0}, "num", "#94a3b8", "purchase-order"),
                 ("PO Value This Month", "Purchase Order", "s", "grand_total", {"docstatus": 1, "transaction_date": m}, "money", "#8b5cf6", "purchase-order"),
             ],
+            "secondary_title": "Vendor & Purchasing Performance",
+            "secondary_kpis": [
+                ("Annual Purchase (YTD)", "Purchase Invoice", "s", "grand_total", {"docstatus": 1, "posting_date": y}, "money", "#f43f5e", "purchase-invoice", f"Calendar {cur_year} Invoiced"),
+                ("Active Suppliers", "Supplier", "n", None, {"disabled": 0}, "num", "#6366f1", "supplier", "Approved vendor base"),
+                ("Pending Material Requests", "Material Request", "n", None, {"docstatus": 1, "status": ["in", ["Pending", "Partially Ordered"]]}, "num", "#f59e0b", "material-request", "Internal requisitions"),
+                ("Purchase Receipts Processed", "Purchase Receipt", "n", None, {"docstatus": 1}, "num", "#10b981", "purchase-receipt", "Goods received verification"),
+            ],
         },
         "sales": {
             "title": "Sales Pulse",
@@ -70,6 +79,13 @@ def _specs():
                 ("SOs To Bill", "Sales Order", "n", None, {"docstatus": 1, "status": ["in", ["To Deliver and Bill", "To Bill"]]}, "num", "#f59e0b", "sales-order"),
                 ("Draft SOs", "Sales Order", "n", None, {"docstatus": 0}, "num", "#94a3b8", "sales-order"),
                 ("SO Value This Month", "Sales Order", "s", "grand_total", {"docstatus": 1, "transaction_date": m}, "money", "#10b981", "sales-order"),
+            ],
+            "secondary_title": "Commercial & Customer Metrics",
+            "secondary_kpis": [
+                ("Annual Sales (YTD)", "Sales Invoice", "s", "grand_total", {"docstatus": 1, "posting_date": y}, "money", "#10b981", "sales-invoice", f"Calendar {cur_year} Billed"),
+                ("Active Customers", "Customer", "n", None, {"disabled": 0}, "num", "#6366f1", "customer", "Registered client base"),
+                ("Open Quotations", "Quotation", "n", None, {"docstatus": 1, "status": "Open"}, "num", "#f59e0b", "quotation", "Proposals pending conversion"),
+                ("Delivery Notes Processed", "Delivery Note", "n", None, {"docstatus": 1}, "num", "#0ea5e9", "delivery-note", "Fulfilled client shipments"),
             ],
         },
         "accounts": {
@@ -81,6 +97,13 @@ def _specs():
                 ("Overdue Sales Invoices", "Sales Invoice", "n", None, {"docstatus": 1, "outstanding_amount": [">", 0], "due_date": ["<", today()]}, "num", "#f59e0b", "sales-invoice"),
                 ("Sales Billed This Month", "Sales Invoice", "s", "grand_total", {"docstatus": 1, "posting_date": m}, "money", "#6366f1", "sales-invoice"),
             ],
+            "secondary_title": "Financial Ledger & Billings Summary",
+            "secondary_kpis": [
+                ("Total Outgoing Bills", "Sales Invoice", "s", "grand_total", {"docstatus": 1}, "money", "#6366f1", "sales-invoice", "Total sales billed"),
+                ("Total Incoming Bills", "Purchase Invoice", "s", "grand_total", {"docstatus": 1}, "money", "#f43f5e", "purchase-invoice", "Total purchase bills received"),
+                ("Incoming Payments", "Payment Entry", "s", "received_amount", {"docstatus": 1, "payment_type": "Receive"}, "money", "#10b981", "payment-entry", "Customer collections"),
+                ("Outgoing Payments", "Payment Entry", "s", "paid_amount", {"docstatus": 1, "payment_type": "Pay"}, "money", "#0ea5e9", "payment-entry", "Vendor disbursements"),
+            ],
         },
         "stock": {
             "title": "Inventory Pulse",
@@ -90,6 +113,13 @@ def _specs():
                 ("Draft Purchase Receipts", "Purchase Receipt", "n", None, {"docstatus": 0}, "num", "#0ea5e9", "purchase-receipt"),
                 ("Pending Material Requests", "Material Request", "n", None, {"docstatus": 1, "status": ["in", ["Pending", "Partially Ordered"]]}, "num", "#f59e0b", "material-request"),
                 ("Active Items", "Item", "n", None, {"disabled": 0}, "num", "#10b981", "item"),
+            ],
+            "secondary_title": "Warehouse & Inventory Distribution",
+            "secondary_kpis": [
+                ("Stock Warehouses", "Warehouse", "n", None, {"disabled": 0}, "num", "#6366f1", "warehouse", "Active storage sites"),
+                ("Stock Inventory Items", "Item", "n", None, {"is_stock_item": 1, "disabled": 0}, "num", "#10b981", "item", "Maintained inventory catalog"),
+                ("Service Items", "Item", "n", None, {"is_stock_item": 0, "disabled": 0}, "num", "#0ea5e9", "item", "Service & fee catalog"),
+                ("Item Groups", "Item Group", "n", None, {}, "num", "#f59e0b", "item-group", "Classification categories"),
             ],
         },
         "hr": {
@@ -131,6 +161,13 @@ def _specs():
                 ("Project Types", "Project Type", "n", None, {}, "num", "#f59e0b", "project-type"),
                 ("Completed Projects", "Project", "n", None, {"status": "Completed"}, "num", "#10b981", "project"),
             ],
+            "secondary_title": "Project Delivery & Engagement Metrics",
+            "secondary_kpis": [
+                ("Active Delivery Projects", "Project", "n", None, {"status": "Open"}, "num", "#6366f1", "project", "Ongoing client engagements"),
+                ("Completed Projects", "Project", "n", None, {"status": "Completed"}, "num", "#10b981", "project", "Successfully delivered"),
+                ("Project Classifications", "Project Type", "n", None, {}, "num", "#f59e0b", "project-type", "Engagement types"),
+                ("Total Project Records", "Project", "n", None, {}, "num", "#0ea5e9", "project", "All registered projects"),
+            ],
         },
         "assets": {
             "title": "Assets Pulse",
@@ -140,6 +177,13 @@ def _specs():
                 ("Asset Value", "Asset", "s", "gross_purchase_amount", {"docstatus": 1}, "money", "#10b981", "asset"),
                 ("In Service", "Asset", "n", None, {"docstatus": 1, "status": "Partially Depreciated"}, "num", "#0ea5e9", "asset"),
                 ("Asset Categories", "Asset Category", "n", None, {}, "num", "#f59e0b", "asset-category"),
+            ],
+            "secondary_title": "Asset Depreciation & Lifecycle",
+            "secondary_kpis": [
+                ("Fully Depreciated Assets", "Asset", "n", None, {"docstatus": 1, "status": "Fully Depreciated"}, "num", "#64748b", "asset", "Zero remaining book value"),
+                ("Total Registered Assets", "Asset", "n", None, {"docstatus": ["<", 2]}, "num", "#6366f1", "asset", "Total asset inventory"),
+                ("Asset Categories", "Asset Category", "n", None, {}, "num", "#10b981", "asset-category", "Capital asset groups"),
+                ("Asset Locations", "Location", "n", None, {}, "num", "#0ea5e9", "location", "Deployable sites"),
             ],
         },
         "manufacturing": {
@@ -151,6 +195,13 @@ def _specs():
                 ("Service Items", "Item", "n", None, {"is_stock_item": 0, "disabled": 0}, "num", "#0ea5e9", "item"),
                 ("Open Work Orders", "Work Order", "n", None, {"docstatus": 1, "status": ["in", ["Not Started", "In Process"]]}, "num", "#f59e0b", "work-order"),
             ],
+            "secondary_title": "Production & Fulfillment Activity",
+            "secondary_kpis": [
+                ("Product Categories", "Item Group", "n", None, {}, "num", "#6366f1", "item-group", "Item classifications"),
+                ("Material Requests in Pipeline", "Material Request", "n", None, {"docstatus": 1, "status": ["in", ["Pending", "Partially Ordered"]]}, "num", "#f59e0b", "material-request", "Awaiting fulfillment"),
+                ("Draft Delivery Notes", "Delivery Note", "n", None, {"docstatus": 0}, "num", "#0ea5e9", "delivery-note", "Shipments in preparation"),
+                ("Draft Purchase Receipts", "Purchase Receipt", "n", None, {"docstatus": 0}, "num", "#10b981", "purchase-receipt", "Dock receipts pending review"),
+            ],
         },
         "quality": {
             "title": "Quality Pulse",
@@ -160,6 +211,13 @@ def _specs():
                 ("Incoming Inspections", "Quality Inspection", "n", None, {"docstatus": 1, "inspection_type": "Incoming"}, "num", "#0ea5e9", "quality-inspection"),
                 ("Outgoing Inspections", "Quality Inspection", "n", None, {"docstatus": 1, "inspection_type": "Outgoing"}, "num", "#10b981", "quality-inspection"),
                 ("Accepted Inspections", "Quality Inspection", "n", None, {"docstatus": 1, "status": "Accepted"}, "num", "#f59e0b", "quality-inspection"),
+            ],
+            "secondary_title": "Quality Assurance & Compliance",
+            "secondary_kpis": [
+                ("Rejected Inspections", "Quality Inspection", "n", None, {"docstatus": 1, "status": "Rejected"}, "num", "#f43f5e", "quality-inspection", "Non-compliant QA lots"),
+                ("In-Process Inspections", "Quality Inspection", "n", None, {"docstatus": 1, "inspection_type": "In Process"}, "num", "#6366f1", "quality-inspection", "Production line audits"),
+                ("Inspection Templates", "Quality Inspection Template", "n", None, {}, "num", "#10b981", "quality-inspection-template", "Standardized test criteria"),
+                ("Draft Inspections", "Quality Inspection", "n", None, {"docstatus": 0}, "num", "#f59e0b", "quality-inspection", "Pending verification"),
             ],
         },
     }
@@ -482,8 +540,32 @@ def get_card(slug, employee=None):
         kpis.append({"label": label, "value": val, "fmt": fmt, "color": color, "route": route})
     if not kpis:
         return None
-    return {"type": "kpi", "title": spec["title"], "subtitle": spec["subtitle"], "kpis": kpis,
-            "user": frappe.utils.get_fullname()}
+
+    secondary_kpis = []
+    if "secondary_kpis" in spec:
+        for item in spec["secondary_kpis"]:
+            label, dt, kind, field, filters, fmt, color, route = item[:8]
+            sub = item[8] if len(item) > 8 else ""
+            val = _count(dt, filters) if kind == "n" else _sum(dt, field, filters)
+            if val is not None:
+                secondary_kpis.append({
+                    "label": label,
+                    "value": val,
+                    "fmt": fmt,
+                    "color": color,
+                    "route": route,
+                    "sub": sub
+                })
+
+    return {
+        "type": "kpi",
+        "title": spec["title"],
+        "subtitle": spec["subtitle"],
+        "kpis": kpis,
+        "secondary_title": spec.get("secondary_title", "Key Operational Metrics"),
+        "secondary_kpis": secondary_kpis,
+        "user": frappe.utils.get_fullname()
+    }
 
 
 def _self_kpis(emp):

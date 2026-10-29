@@ -151,9 +151,13 @@
     });
   }
 
+  function clearMountedCards() {
+    $(".aka-hero, .aka-ledger, .aka-home-wrapper, .aka-fin-wrapper, .aka-sec-wrapper, .aka-home-container").remove();
+  }
+
   /* Render Home Self-Service card (User Photo, Stats & My Tasks) */
   function renderHomeSelfCard(card, $main) {
-    $(".aka-hero, .aka-ledger, .aka-home-wrapper, .aka-fin-wrapper").remove();
+    clearMountedCards();
 
     const empImage = card.employee_image
       ? `<img src="${esc(card.employee_image)}" class="aka-home-avatar" alt="Avatar" />`
@@ -327,17 +331,43 @@
   }
 
   function renderHero(card, $main, slug) {
-    $(".aka-hero, .aka-ledger, .aka-home-wrapper, .aka-fin-wrapper, .aka-home-container").remove();
+    clearMountedCards();
     // Hide empty generic workspace editor blocks so only populated pulse cards remain
     $main.find("#editorjs").hide();
     let head = `<h3>${greeting()}, ${esc(card.user)} 👋</h3><div class="aka-sub">${esc(card.title)} — ${esc(card.subtitle)}</div>`;
     const kp = card.kpis && card.kpis.length ? `<div class="aka-kpis">${card.kpis.map(kpiHtml).join("")}</div>` : "";
     const $hero = $(`<div class="aka-hero" data-slug="${esc(slug)}"><div class="aka-head"><div>${head}</div></div>${kp}</div>`);
     
+    let $sec = null;
+    if (card.secondary_kpis && card.secondary_kpis.length > 0) {
+      $sec = $(`
+        <div class="aka-fin-wrapper aka-sec-wrapper" data-slug="${esc(slug)}">
+          <div class="aka-fin-head">
+            <div class="aka-fin-title">${esc(card.secondary_title || "Key Operational Metrics")}</div>
+          </div>
+          <div class="aka-fin-grid">
+            ${card.secondary_kpis.map(k => {
+              const full = k.fmt === "money" ? money(k.value) : num(k.value);
+              const val = k.fmt === "money" ? "Rs " + compact(k.value) : num(k.value);
+              return `
+                <div class="aka-fin-card" data-route="${esc(k.route || '')}">
+                  <div class="aka-fin-label">${esc(k.label)}</div>
+                  <div class="aka-fin-val" title="${esc(full)}">${val}</div>
+                  <div class="aka-fin-sub">${esc(k.sub || '')}</div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+      `);
+    }
+
     if ($main.find("#editorjs").length) {
       $main.find("#editorjs").before($hero);
+      if ($sec) $hero.after($sec);
     } else {
       $main.prepend($hero);
+      if ($sec) $hero.after($sec);
     }
 
     $hero.on("click", ".aka-kpi", function () {
@@ -350,6 +380,19 @@
         }
       }
     });
+
+    if ($sec) {
+      $sec.on("click", ".aka-fin-card", function () {
+        const r = $(this).data("route");
+        if (r) {
+          if (window.frappe && frappe.set_route) {
+            frappe.set_route(r);
+          } else {
+            window.location.href = "/app/" + r;
+          }
+        }
+      });
+    }
   }
 
   let busy = false;
@@ -358,7 +401,7 @@
     const slug = slugFromPath();
     const $mainCheck = mountPoint();
     if (!slug || !$mainCheck) {
-      $(".aka-hero, .aka-ledger, .aka-home-wrapper").remove();
+      clearMountedCards();
       return;
     }
     const currentMountedSlug = $(".aka-hero").data("slug") || $(".aka-home-wrapper").data("slug");
@@ -373,7 +416,7 @@
       if (!$main) { busy = false; return; }
       frappe.call({ method: API + "get_card", args: { slug, employee: viewAs() } }).then((r) => {
         if (slugFromPath() !== slug) return;
-        $(".aka-hero, .aka-ledger, .aka-home-wrapper").remove();
+        clearMountedCards();
         if (r.message) {
           if (r.message.type === "home_self") {
             renderHomeSelfCard(r.message, $main);
@@ -395,7 +438,7 @@
         const slug = slugFromPath();
         const $m = mountPoint();
         if (!slug || !$m) {
-          $(".aka-hero, .aka-ledger, .aka-home-wrapper").remove();
+          clearMountedCards();
         }
         setTimeout(() => { load(false); }, 150);
       });
