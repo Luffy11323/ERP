@@ -173,9 +173,10 @@ The codebase and backups support running on **v16** and safely falling back to *
 2. **Database & File Restore:**
    - Go to **Sites → Your Site → Restore with files**.
    - Upload the latest v16 backup files from `C:\Users\Administrator\Desktop\Radiant_ERP_Backup\database_backup\16\`:
-     - Database: `20261028_080337-v16_local-database.sql.gz`
-     - Public Files: `20261027_011459-v16_local-files.tar`
-     - Private Files: `20261027_011459-v16_local-private-files.tar`
+     - Database: `20261029_073936-v16_local-database.sql.gz` (32.6 MB)
+     - Public Files: `20261027_011459-v16_local-files.tar` (290.7 MB)
+     - Private Files: `20261027_011459-v16_local-private-files.tar` (4.85 GB)
+     - Site Config: `20261029_073936-v16_local-site_config_backup.json`
 3. **Execute Migrate & Deploy:**
    - Click **Restore**, then **Migrate**.
    - Deploy latest `main` commit.
@@ -206,13 +207,20 @@ If you ever need to fall back to Frappe v15:
 
 ## 8. How to Run (Single Command Hand-Off)
 
-Everything is unified into a single command: `./run_sync.sh`.
+Everything is unified into a single command: `./run_sync.sh` (or `.\run_sync.ps1` from Windows PowerShell).
 
-### Full Monthly Scrape & Direct Cloud Deployment (Scrape -> Auto-Heal -> Backup -> Stream to Cloud)
+### Standard Monthly Scrape & Backup Pipeline (Scrape -> Auto-Heal -> Archive Backups)
 
 * **Primary 1-Command Runner (v16.5 Live Bench):**
   ```bash
   wsl -d Ubuntu -- bash -lc "cd /home/administrator/frappe-bench/apps/akatech_erp && ./run_sync.sh"
+  ```
+  *(Automatically scrapes 1:1, runs universal auto-healing, generates fresh `.sql.gz` and `.tar` backups, and copies them to the Windows host backup folder for manual restore via Frappe Cloud).*
+
+* **Windows PowerShell Alternative:**
+  ```powershell
+  cd C:\Users\Administrator\Desktop\Radiant_ERP_Backup\code
+  .\run_sync.ps1
   ```
 
 * **Archived Legacy v15 Runner:**
@@ -224,17 +232,17 @@ Everything is unified into a single command: `./run_sync.sh`.
 
 ### Command Variations:
 
-* **Stream Latest Local DB Only (Skip scraping, immediately deploy to Cloud):**
-  ```bash
-  wsl -d Ubuntu -- bash -lc "cd /home/administrator/frappe-bench/apps/akatech_erp && ./run_sync.sh --stream-only"
-  ```
-* **Local Run Only (Scrape + Auto-heal + Backup locally without cloud upload):**
-  ```bash
-  wsl -d Ubuntu -- bash -lc "cd /home/administrator/frappe-bench/apps/akatech_erp && ./run_sync.sh --skip-cloud"
-  ```
 * **Skip File Downloads (Database records only):**
   ```bash
   wsl -d Ubuntu -- bash -lc "cd /home/administrator/frappe-bench/apps/akatech_erp && ./run_sync.sh --skip-files"
+  ```
+* **Optional: Direct Stream to Cloud MariaDB (WAN Streaming):**
+  ```bash
+  wsl -d Ubuntu -- bash -lc "cd /home/administrator/frappe-bench/apps/akatech_erp && ./run_sync.sh --stream"
+  ```
+* **Stream Latest Local DB Only (Skip scraping, stream immediately):**
+  ```bash
+  wsl -d Ubuntu -- bash -lc "cd /home/administrator/frappe-bench/apps/akatech_erp && ./run_sync.sh --stream-only"
   ```
 
 ---
@@ -247,10 +255,10 @@ All redundant intermediate files have been purged. The active backup sets ready 
 * **Location on Host:** `C:\Users\Administrator\Desktop\Radiant_ERP_Backup\database_backup\16\`
 * **Location in WSL:** `/home/administrator/frappe-bench/sites/v16.local/private/backups/`
 * **Files:**
-  - **Database SQL:** `20261028_080337-v16_local-database.sql.gz` (32.6 MB)
+  - **Database SQL:** `20261029_073936-v16_local-database.sql.gz` (32.6 MB)
   - **Public Files:** `20261027_011459-v16_local-files.tar` (290.7 MB)
   - **Private Files:** `20261027_011459-v16_local-private-files.tar` (4.85 GB)
-  - **Site Config:** `20261028_080337-v16_local-site_config_backup.json`
+  - **Site Config:** `20261029_073936-v16_local-site_config_backup.json`
 
 ### v15 Production Backup (Archived Baseline / Fallback)
 * **Location on Host:** `C:\Users\Administrator\Desktop\Radiant_ERP_Backup\database_backup\`

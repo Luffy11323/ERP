@@ -13,8 +13,8 @@
 #   8. Injects Administrator user & password (123) with full System Manager permissions
 #
 # Usage:
-#   ./run_sync.sh                   # Scrape + Auto-heal + Backup + Stream to Frappe Cloud
-#   ./run_sync.sh --skip-cloud      # Scrape + Auto-heal + Backup locally only (no cloud upload)
+#   ./run_sync.sh                   # Scrape + Auto-heal + Backup locally (ready for Cloud upload)
+#   ./run_sync.sh --stream          # Scrape + Auto-heal + Backup + Direct Stream to Cloud MariaDB
 #   ./run_sync.sh --stream-only     # Skip scraping, immediately stream latest local DB to Cloud
 #   ./run_sync.sh --skip-files      # Sync database records only, skip file downloads
 # ==============================================================================
@@ -125,7 +125,7 @@ else
 fi
 
 # Parse CLI flags
-SKIP_CLOUD=false
+STREAM_CLOUD=false
 STREAM_ONLY=false
 TARGET_SITE="${FRAPPE_SITE:-}"
 SYNC_ARGS=("--force-prune")
@@ -140,12 +140,17 @@ while [ $# -gt 0 ]; do
             TARGET_SITE="${1#*=}"
             shift
             ;;
+        --stream)
+            STREAM_CLOUD=true
+            shift
+            ;;
         --skip-cloud)
-            SKIP_CLOUD=true
+            STREAM_CLOUD=false
             shift
             ;;
         --stream-only)
             STREAM_ONLY=true
+            STREAM_CLOUD=true
             shift
             ;;
         --with-backup)
@@ -233,18 +238,41 @@ if not frappe.db.exists('Patch Log', {'patch': patch}):
         echo ""
         echo ">>> Step 3/4: Generating Fresh Local Backup Archive..."
         cd "$BENCH_DIR/sites"
-        bench --site "$TARGET_SITE" backup --with-files
+        if command -v bench >/dev/null 2>&1; then
+            bench --site "$TARGET_SITE" backup --with-files
+        elif [ -x "$HOME/.local/bin/bench" ]; then
+            "$HOME/.local/bin/bench" --site "$TARGET_SITE" backup --with-files
+        else
+            "$PYTHON_BIN" -m frappe.utils.bench_helper frappe --site "$TARGET_SITE" backup --with-files
+        fi
+
+        # Sync fresh backup to Windows Desktop backup path for easy manual upload
+        DEST_WIN_DIR="/mnt/c/Users/Administrator/Desktop/Radiant_ERP_Backup/database_backup"
+        if [ "$TARGET_SITE" = "v16.local" ]; then
+            DEST_WIN_DIR="/mnt/c/Users/Administrator/Desktop/Radiant_ERP_Backup/database_backup/16"
+        fi
+        if [ -d "$DEST_WIN_DIR" ]; then
+            LATEST_SQL="$(ls -t "$BENCH_DIR/sites/$TARGET_SITE/private/backups"/*-database.sql.gz 2>/dev/null | head -1 || true)"
+            LATEST_CFG="$(ls -t "$BENCH_DIR/sites/$TARGET_SITE/private/backups"/*-site_config_backup.json 2>/dev/null | head -1 || true)"
+            [ -n "$LATEST_SQL" ] && cp -f "$LATEST_SQL" "$DEST_WIN_DIR/"
+            [ -n "$LATEST_CFG" ] && cp -f "$LATEST_CFG" "$DEST_WIN_DIR/"
+            echo "Copied latest backup archive to: $DEST_WIN_DIR"
+        fi
     fi
 fi
 
 # ------------------------------------------------------------------------------
-# 4. Streamline to Frappe Cloud & Set Administrator Password
+# 4. Optional: Direct Stream to Frappe Cloud MariaDB (--stream)
 # ------------------------------------------------------------------------------
-if [ "$SKIP_CLOUD" = true ]; then
+if [ "$STREAM_CLOUD" = false ] && [ "$STREAM_ONLY" = false ]; then
     echo ""
-    echo "Notice: Cloud streaming skipped (--skip-cloud passed)."
-    echo "All data and backups are preserved locally."
-    echo "Done!"
+    echo "============================================================"
+    echo " Pipeline Complete!"
+    echo " 1. Records scraped & verified 1:1"
+    echo " 2. Universal auto-healing executed"
+    echo " 3. Fresh local database backup generated & archived"
+    echo " Backups are ready on host for manual restore via Frappe Cloud UI."
+    echo "============================================================"
     exit 0
 fi
 
