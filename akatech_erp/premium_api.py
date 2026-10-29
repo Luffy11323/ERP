@@ -5,7 +5,7 @@ main workspaces and the Self Service running ledger.  All queries go through
 frappe.get_list so standard role / user permissions are always respected.
 """
 import frappe
-from frappe.utils import flt, getdate, nowdate, get_first_day, get_last_day, today
+from frappe.utils import flt, getdate, nowdate, get_first_day, get_last_day, today, get_datetime
 
 
 def _can(doctype):
@@ -192,6 +192,25 @@ def _employee(employee=None):
     return None
 
 
+def _format_log_time(dt_val):
+    if not dt_val:
+        return "--"
+    try:
+        dt = get_datetime(dt_val)
+        t_str = frappe.utils.format_time(dt, "hh:mm a")
+        d = getdate(dt)
+        today_d = getdate(today())
+        if d == today_d:
+            return f"Today, {t_str}"
+        elif d == frappe.utils.add_days(today_d, -1):
+            return f"Yesterday, {t_str}"
+        else:
+            d_str = frappe.utils.format_date(dt, "dd MMM")
+            return f"{d_str}, {t_str}"
+    except Exception:
+        return str(dt_val)
+
+
 def _card_home_self(employee=None):
     emp = _employee(employee)
     user = frappe.session.user
@@ -206,28 +225,45 @@ def _card_home_self(employee=None):
         emp_id = "N/A"
         emp_image = user_doc.get("user_image")
 
+    now_dt = frappe.utils.now_datetime()
     today_date = today()
     login_time = "--"
     last_out_time = "--"
     is_checked_in = False
     
     if emp:
-        checkins = frappe.get_all(
+        # Determine status strictly from the latest record <= now_dt
+        latest_log = frappe.get_all(
             "Employee Checkin",
-            filters={"employee": emp.name, "time": [">=", f"{today_date} 00:00:00"]},
-            fields=["log_type", "time"],
-            order_by="time asc"
+            filters={"employee": emp.name, "time": ["<=", now_dt]},
+            fields=["log_type", "time", "creation"],
+            order_by="creation desc, time desc",
+            limit=1
         )
-        if checkins:
-            first_in = next((c for c in checkins if c.log_type == "IN"), None)
-            if first_in:
-                login_time = frappe.utils.format_time(first_in.time, "hh:mm a")
-            
-            last_out = next((c for c in reversed(checkins) if c.log_type == "OUT"), None)
-            if last_out:
-                last_out_time = frappe.utils.format_time(last_out.time, "hh:mm a")
-            
-            is_checked_in = (checkins[-1].log_type == "IN")
+        if latest_log:
+            is_checked_in = (latest_log[0].log_type == "IN")
+
+        # Get latest IN log <= now_dt
+        last_in_row = frappe.get_all(
+            "Employee Checkin",
+            filters={"employee": emp.name, "log_type": "IN", "time": ["<=", now_dt]},
+            fields=["time", "creation"],
+            order_by="creation desc, time desc",
+            limit=1
+        )
+        if last_in_row:
+            login_time = _format_log_time(last_in_row[0].time)
+
+        # Get latest OUT log <= now_dt
+        last_out_row = frappe.get_all(
+            "Employee Checkin",
+            filters={"employee": emp.name, "log_type": "OUT", "time": ["<=", now_dt]},
+            fields=["time", "creation"],
+            order_by="creation desc, time desc",
+            limit=1
+        )
+        if last_out_row:
+            last_out_time = _format_log_time(last_out_row[0].time)
 
     first_day = get_first_day(today_date)
     last_day = get_last_day(today_date)
@@ -294,6 +330,92 @@ def _card_home_self(employee=None):
     except Exception:
         pass
 
+    # Financial smart ledger KPI summary
+    fin_kpis = []
+    if emp:
+        cur_year = getdate(today_date).year
+        # 1. Gross Year to Date
+        ytd_slips = frappe.get_all(
+            "Salary Slip",
+            filters={
+                "employee": emp.name,
+                "docstatus": 1,
+                "end_date": ["between", [f"{cur_year}-01-01", f"{cur_year}-12-31"]]
+            },
+            fields=["gross_pay"]
+        )
+        gross_ytd = sum(flt(s.gross_pay) for s in ytd_slips)
+        fin_kpis.append({
+            "label": "Gross Year to Date",
+            "value": gross_ytd,
+            "fmt": "money",
+            "sub": f"Calendar Year {cur_year}",
+            "color": "#10b981",
+            "route": "salary-slip"
+        })
+
+        # 2. Last Month Salary
+        last_slip = frappe.db.get_value(
+            "Salary Slip",
+            {"employee": emp.name, "docstatus": 1},
+            ["net_pay", "end_date", "name"],
+            order_by="end_date desc",
+            as_dict=True
+        )
+        if last_slip:
+            slip_month = frappe.utils.format_date(last_slip.end_date, "MMMM YYYY")
+            fin_kpis.append({
+                "label": "Last Month Salary",
+                "value": flt(last_slip.net_pay),
+                "fmt": "money",
+                "sub": f"{slip_month} (Net)",
+                "color": "#6366f1",
+                "route": f"salary-slip/{last_slip.name}"
+            })
+        else:
+            fin_kpis.append({
+                "label": "Last Month Salary",
+                "value": 0,
+                "fmt": "money",
+                "sub": "No slips finalized",
+                "color": "#6366f1",
+                "route": "salary-slip"
+            })
+
+        # 3. Advance Outstanding
+        adv_rows = frappe.db.sql(
+            """SELECT SUM(advance_amount - claimed_amount - return_amount)
+               FROM `tabEmployee Advance`
+               WHERE employee=%s AND docstatus=1""",
+            (emp.name,)
+        )
+        adv_bal = flt(adv_rows[0][0]) if adv_rows and adv_rows[0] and adv_rows[0][0] else 0.0
+        fin_kpis.append({
+            "label": "Advance Outstanding",
+            "value": adv_bal,
+            "fmt": "money",
+            "sub": "Active advances balance",
+            "color": "#f59e0b",
+            "route": "employee-advance"
+        })
+
+        # 4. Expense Claims
+        claim_rows = frappe.db.sql(
+            """SELECT SUM(total_sanctioned_amount)
+               FROM `tabExpense Claim`
+               WHERE employee=%s AND docstatus=1 AND status='Unpaid'""",
+            (emp.name,)
+        )
+        claim_bal = flt(claim_rows[0][0]) if claim_rows and claim_rows[0] and claim_rows[0][0] else 0.0
+        fin_kpis.append({
+            "label": "Expense Claims",
+            "value": claim_bal,
+            "fmt": "money",
+            "sub": "Pending reimbursement",
+            "color": "#f43f5e",
+            "route": "expense-claim"
+        })
+
     return {
         "type": "home_self",
         "employee": emp,
@@ -311,6 +433,7 @@ def _card_home_self(employee=None):
         "total_hours": round(total_hours, 1),
         "expected_hours": expected_hours,
         "tasks": tasks,
+        "fin_kpis": fin_kpis,
         "privileged": _is_privileged(),
     }
 
@@ -374,11 +497,24 @@ def _self_kpis(emp):
 
 
 def _last_checkin(employee):
-    rows = frappe.get_all("Employee Checkin", filters={"employee": employee}, fields=["log_type", "time", "creation"], order_by="time desc", limit=1)
-    row = rows[0] if rows else None
-    if row and (getdate(row.time) == getdate(today()) or getdate(row.creation) == getdate(today())):
-        return {"log_type": row.log_type, "time": str(row.time)}
-    return None
+    now = frappe.utils.now_datetime()
+    rows = frappe.get_all(
+        "Employee Checkin",
+        filters={"employee": employee, "time": ["<=", now]},
+        fields=["name", "log_type", "time", "creation"],
+        order_by="creation desc, time desc",
+        limit=1
+    )
+    if rows:
+        return rows[0]
+    rows = frappe.get_all(
+        "Employee Checkin",
+        filters={"employee": employee},
+        fields=["name", "log_type", "time", "creation"],
+        order_by="creation desc, time desc",
+        limit=1
+    )
+    return rows[0] if rows else None
 
 
 def _sync_checkin_series():
@@ -411,30 +547,53 @@ def _sync_checkin_series():
 
 
 @frappe.whitelist()
-def toggle_checkin(employee=None):
+def toggle_checkin(employee=None, latitude=None, longitude=None):
     """Create an IN/OUT Employee Checkin for the logged-in employee."""
     emp = _employee(employee)
     if not emp:
         frappe.throw("No active Employee is linked to your user.")
+    
     last = _last_checkin(emp.name)
-    log_type = "OUT" if last and last["log_type"] == "IN" else "IN"
+    # Strictly determine next log_type based on the latest record
+    log_type = "OUT" if (last and last.get("log_type") == "IN") else "IN"
 
     _sync_checkin_series()
 
-    prefix = f"EMP-CKIN-{frappe.utils.now_datetime().strftime('%m-%Y')}-"
-    for _ in range(5):
+    now_dt = frappe.utils.now_datetime()
+    prefix = f"EMP-CKIN-{now_dt.strftime('%m-%Y')}-"
+    
+    doc_args = {
+        "doctype": "Employee Checkin",
+        "employee": emp.name,
+        "log_type": log_type,
+        "time": now_dt
+    }
+    
+    # Attach geolocation coordinates if provided
+    if latitude is not None and str(latitude).strip() != "":
         try:
-            doc = frappe.get_doc({
-                "doctype": "Employee Checkin",
-                "employee": emp.name,
-                "log_type": log_type,
-                "time": frappe.utils.now_datetime()
-            })
+            doc_args["latitude"] = flt(latitude)
+        except Exception:
+            pass
+    if longitude is not None and str(longitude).strip() != "":
+        try:
+            doc_args["longitude"] = flt(longitude)
+        except Exception:
+            pass
+
+    for _ in range(10):
+        try:
+            doc = frappe.get_doc(doc_args)
             doc.insert()
             frappe.db.commit()
-            return {"log_type": log_type, "time": str(doc.time)}
+            return {
+                "log_type": log_type,
+                "time": str(doc.time),
+                "formatted_time": _format_log_time(doc.time),
+                "latitude": getattr(doc, "latitude", None),
+                "longitude": getattr(doc, "longitude", None)
+            }
         except frappe.DuplicateEntryError:
-            # Advance series counter and retry next number
             frappe.db.sql(
                 """INSERT INTO `tabSeries` (name, current)
                    VALUES (%s, 1)

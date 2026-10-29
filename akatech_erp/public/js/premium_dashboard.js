@@ -122,15 +122,42 @@
     return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
   }
 
+  function getCoordinates() {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          resolve({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude
+          });
+        },
+        (err) => {
+          console.warn("[Akatech Premium] Geolocation error/permission:", err);
+          resolve(null);
+        },
+        { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
+      );
+    });
+  }
+
   /* Render Home Self-Service card (User Photo, Stats & My Tasks) */
   function renderHomeSelfCard(card, $main) {
-    $(".aka-hero, .aka-ledger, .aka-home-wrapper").remove();
+    $(".aka-hero, .aka-ledger, .aka-home-wrapper, .aka-fin-wrapper").remove();
 
     const empImage = card.employee_image
       ? `<img src="${esc(card.employee_image)}" class="aka-home-avatar" alt="Avatar" />`
       : `<div class="aka-home-avatar-initial">${esc(card.employee_name ? card.employee_name.charAt(0) : "U")}</div>`;
 
+    const statusBadge = card.is_checked_in
+      ? `<span class="aka-status-pill aka-status-in"><span class="aka-pulse-dot"></span> Checked IN</span>`
+      : `<span class="aka-status-pill aka-status-out">○ Checked OUT</span>`;
+
     const checkinBtnText = card.is_checked_in ? "Check-out" : "Check-in";
+    const checkinBtnClass = card.is_checked_in ? "aka-btn-checkin aka-btn-checkout" : "aka-btn-checkin";
 
     let tasksHtml = `<div class="aka-no-tasks">No open tasks. You are all caught up.</div>`;
     if (card.tasks && card.tasks.length > 0) {
@@ -152,40 +179,69 @@
       ? `<div style="margin-bottom:8px;"><select id="aka-emp-home" class="aka-select" style="max-width:200px;font-size:12px;padding:4px 8px;"><option value="">— Preview Employee —</option></select></div>`
       : "";
 
+    let finHtml = "";
+    if (card.fin_kpis && card.fin_kpis.length > 0) {
+      finHtml = `
+        <div class="aka-fin-wrapper">
+          <div class="aka-fin-head">
+            <div class="aka-fin-title">Personal Financial Summary & Smart Ledger</div>
+            <a href="/app/salary-slip" class="aka-fin-link">View Salary Slips ↗</a>
+          </div>
+          <div class="aka-fin-grid">
+            ${card.fin_kpis.map(k => {
+              const full = k.fmt === "money" ? money(k.value) : num(k.value);
+              const val = k.fmt === "money" ? "Rs " + compact(k.value) : num(k.value);
+              return `
+                <div class="aka-fin-card" data-route="${esc(k.route || '')}">
+                  <div class="aka-fin-label">${esc(k.label)}</div>
+                  <div class="aka-fin-val" title="${esc(full)}">${val}</div>
+                  <div class="aka-fin-sub">${esc(k.sub || '')}</div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+      `;
+    }
+
     const html = `
-      <div class="aka-home-wrapper" data-slug="home">
-        <div class="aka-self-card">
-          <div class="aka-self-avatar-col">
-            ${empImage}
-          </div>
-          <div class="aka-self-info-col">
-            <h2 class="aka-self-name">${esc(card.employee_name)}</h2>
-            <div class="aka-self-id">Employee #: ${esc(card.employee_id)}</div>
-            <div class="aka-self-time">Logged in: <b>${esc(card.login_time)}</b></div>
-            <div class="aka-self-time">Last OUT: <b>${esc(card.last_out_time)}</b></div>
-            <div class="aka-self-attendance">Present: <b>${card.present_days} / ${card.total_work_days} work days</b></div>
-            <div class="aka-self-badges">
-              <span class="aka-badge-absent">Absent: ${card.absent_days}</span>
-              <span class="aka-badge-leaves">Leaves: ${card.leave_days}</span>
+      <div class="aka-home-container">
+        <div class="aka-home-wrapper" data-slug="home">
+          <div class="aka-self-card">
+            <div class="aka-self-avatar-col">
+              ${empImage}
             </div>
-            <div class="aka-self-hours">Total Hours: <b>${Number(card.total_hours).toFixed(1)} / ${Number(card.expected_hours).toFixed(1)} hrs</b></div>
+            <div class="aka-self-info-col">
+              <h2 class="aka-self-name">${esc(card.employee_name)} ${statusBadge}</h2>
+              <div class="aka-self-id">Employee #: ${esc(card.employee_id)}</div>
+              <div class="aka-self-time">Last Check-in: <b>${esc(card.login_time)}</b></div>
+              <div class="aka-self-time">Last Check-out: <b>${esc(card.last_out_time)}</b></div>
+              <div class="aka-self-attendance">Present: <b>${card.present_days} / ${card.total_work_days} work days</b></div>
+              <div class="aka-self-badges">
+                <span class="aka-badge-absent">Absent: ${card.absent_days}</span>
+                <span class="aka-badge-leaves">Leaves: ${card.leave_days}</span>
+              </div>
+              <div class="aka-self-hours">Total Hours: <b>${Number(card.total_hours).toFixed(1)} / ${Number(card.expected_hours).toFixed(1)} hrs</b></div>
+            </div>
+            <div class="aka-self-action-col">
+              ${picker}
+              <div class="aka-self-month">${esc(card.month_label)}</div>
+              <button class="${checkinBtnClass}" id="aka-home-checkin-btn">${esc(checkinBtnText)}</button>
+            </div>
           </div>
-          <div class="aka-self-action-col">
-            ${picker}
-            <div class="aka-self-month">${esc(card.month_label)}</div>
-            <button class="aka-btn-checkin" id="aka-home-checkin-btn">${esc(checkinBtnText)}</button>
+
+          <div class="aka-tasks-card">
+            <div class="aka-tasks-head">
+              <span class="aka-tasks-title">My Tasks</span>
+              <a href="/app/todo" class="aka-tasks-viewall">View all</a>
+            </div>
+            <div class="aka-tasks-body">
+              ${tasksHtml}
+            </div>
           </div>
         </div>
 
-        <div class="aka-tasks-card">
-          <div class="aka-tasks-head">
-            <span class="aka-tasks-title">My Tasks</span>
-            <a href="/app/todo" class="aka-tasks-viewall">View all</a>
-          </div>
-          <div class="aka-tasks-body">
-            ${tasksHtml}
-          </div>
-        </div>
+        ${finHtml}
       </div>
     `;
 
@@ -196,17 +252,53 @@
       $main.prepend($elem);
     }
 
-    $elem.find("#aka-home-checkin-btn").on("click", function () {
-      frappe.confirm(`Record your ${checkinBtnText} now?`, () => {
+    // Hide generic empty company blocks on Home
+    $main.find("#editorjs").hide();
+
+    $elem.find("#aka-home-checkin-btn").on("click", async function () {
+      const $btn = $(this);
+      const origText = $btn.text();
+      $btn.prop("disabled", true).text("Locating...");
+
+      let coords = null;
+      try {
+        coords = await getCoordinates();
+      } catch (e) {
+        console.warn("Coords error:", e);
+      }
+      $btn.prop("disabled", false).text(origText);
+
+      frappe.confirm(`Record your <b>${checkinBtnText}</b> now?`, () => {
         frappe.call({
           method: API + "toggle_checkin",
-          args: { employee: viewAs() },
+          args: {
+            employee: viewAs(),
+            latitude: coords ? coords.latitude : null,
+            longitude: coords ? coords.longitude : null
+          },
           freeze: true
         }).then((r) => {
-          frappe.show_alert({ message: `Successfully recorded ${r.message.log_type}`, indicator: "green" });
+          const geoNotice = (coords && coords.latitude) ? " (Geo-synced)" : "";
+          frappe.show_alert({
+            message: `Successfully recorded ${r.message.log_type}${geoNotice}`,
+            indicator: "green"
+          });
+          load(true);
+        }).fail(() => {
           load(true);
         });
       });
+    });
+
+    $elem.on("click", ".aka-fin-card", function () {
+      const r = $(this).data("route");
+      if (r) {
+        if (window.frappe && frappe.set_route) {
+          frappe.set_route(r);
+        } else {
+          window.location.href = "/app/" + r;
+        }
+      }
     });
 
     if (card.privileged) {
@@ -228,7 +320,8 @@
   }
 
   function renderHero(card, $main, slug) {
-    $(".aka-hero, .aka-ledger, .aka-home-wrapper").remove();
+    $(".aka-hero, .aka-ledger, .aka-home-wrapper, .aka-fin-wrapper, .aka-home-container").remove();
+    $main.find("#editorjs").show();
     let head = `<h3>${greeting()}, ${esc(card.user)} 👋</h3><div class="aka-sub">${esc(card.title)} — ${esc(card.subtitle)}</div>`;
     const kp = card.kpis && card.kpis.length ? `<div class="aka-kpis">${card.kpis.map(kpiHtml).join("")}</div>` : "";
     const $hero = $(`<div class="aka-hero" data-slug="${esc(slug)}"><div class="aka-head"><div>${head}</div></div>${kp}</div>`);
