@@ -246,18 +246,48 @@ if not frappe.db.exists('Patch Log', {'patch': patch}):
             "$PYTHON_BIN" -m frappe.utils.bench_helper frappe --site "$TARGET_SITE" backup --with-files
         fi
 
-        # Sync fresh backup to Windows Desktop backup path for easy manual upload
-        DEST_WIN_DIR="/mnt/c/Users/Administrator/Desktop/Radiant_ERP_Backup/database_backup"
+        # Sync fresh backup to Windows Desktop backup path into a new timestamped folder
+        BASE_WIN_DIR="/mnt/c/Users/Administrator/Desktop/Radiant_ERP_Backup/database_backup"
         if [ "$TARGET_SITE" = "v16.local" ]; then
-            DEST_WIN_DIR="/mnt/c/Users/Administrator/Desktop/Radiant_ERP_Backup/database_backup/16"
+            BASE_WIN_DIR="/mnt/c/Users/Administrator/Desktop/Radiant_ERP_Backup/database_backup/16"
         fi
-        if [ -d "$DEST_WIN_DIR" ]; then
-            LATEST_SQL="$(ls -t "$BENCH_DIR/sites/$TARGET_SITE/private/backups"/*-database.sql.gz 2>/dev/null | head -1 || true)"
-            LATEST_CFG="$(ls -t "$BENCH_DIR/sites/$TARGET_SITE/private/backups"/*-site_config_backup.json 2>/dev/null | head -1 || true)"
-            [ -n "$LATEST_SQL" ] && cp -f "$LATEST_SQL" "$DEST_WIN_DIR/"
-            [ -n "$LATEST_CFG" ] && cp -f "$LATEST_CFG" "$DEST_WIN_DIR/"
-            echo "Copied latest backup archive to: $DEST_WIN_DIR"
+
+        LATEST_SQL="$(ls -t "$BENCH_DIR/sites/$TARGET_SITE/private/backups"/*-database.sql.gz 2>/dev/null | head -1 || true)"
+        LATEST_CFG="$(ls -t "$BENCH_DIR/sites/$TARGET_SITE/private/backups"/*-site_config_backup.json 2>/dev/null | head -1 || true)"
+        
+        # Derive timestamp folder name from the backup name or current date
+        TS_TAG=""
+        if [ -n "$LATEST_SQL" ]; then
+            TS_TAG="$(basename "$LATEST_SQL" | cut -d'-' -f1)"
         fi
+        [ -z "$TS_TAG" ] && TS_TAG="$(date +%Y%m%d_%H%M%S)"
+        
+        NEW_BACKUP_DIR="$BASE_WIN_DIR/$TS_TAG"
+        mkdir -p "$NEW_BACKUP_DIR"
+
+        if [ -n "$LATEST_SQL" ]; then
+            cp -f "$LATEST_SQL" "$NEW_BACKUP_DIR/"
+            cp -f "$LATEST_SQL" "$BASE_WIN_DIR/"
+        fi
+        if [ -n "$LATEST_CFG" ]; then
+            cp -f "$LATEST_CFG" "$NEW_BACKUP_DIR/"
+            cp -f "$LATEST_CFG" "$BASE_WIN_DIR/"
+        fi
+
+        # Copy files.tar and private-files.tar if present
+        LATEST_FILES="$(ls -t "$BENCH_DIR/sites/$TARGET_SITE/private/backups"/*-files.tar "$BASE_WIN_DIR"/*-files.tar 2>/dev/null | head -1 || true)"
+        LATEST_PFILES="$(ls -t "$BENCH_DIR/sites/$TARGET_SITE/private/backups"/*-private-files.tar "$BASE_WIN_DIR"/*-private-files.tar 2>/dev/null | head -1 || true)"
+        if [ -n "$LATEST_FILES" ] && [ ! -f "$NEW_BACKUP_DIR/$(basename "$LATEST_FILES")" ]; then
+            cp -n "$LATEST_FILES" "$NEW_BACKUP_DIR/" 2>/dev/null || true
+        fi
+        if [ -n "$LATEST_PFILES" ] && [ ! -f "$NEW_BACKUP_DIR/$(basename "$LATEST_PFILES")" ]; then
+            cp -n "$LATEST_PFILES" "$NEW_BACKUP_DIR/" 2>/dev/null || true
+        fi
+
+        echo ""
+        echo ">>> Fresh Backup Created & Archived:"
+        echo "Folder:   $NEW_BACKUP_DIR"
+        echo "Database: $NEW_BACKUP_DIR/$(basename "$LATEST_SQL")"
     fi
 fi
 
@@ -272,6 +302,7 @@ if [ "$STREAM_CLOUD" = false ] && [ "$STREAM_ONLY" = false ]; then
     echo " 2. Universal auto-healing executed"
     echo " 3. Fresh local database backup generated & archived"
     echo " Backups are ready on host for manual restore via Frappe Cloud UI."
+    echo " Destination: $BASE_WIN_DIR"
     echo "============================================================"
     exit 0
 fi
@@ -279,19 +310,20 @@ fi
 echo ""
 echo ">>> Step 4/4: Streamlining Database directly to Frappe Cloud..."
 
-# Locate latest backup file
+# Locate latest backup file (auto-checks latest newly created folder or root)
 BACKUP_FILE=""
 SEARCH_DIRS=(
+    "/mnt/c/Users/Administrator/Desktop/Radiant_ERP_Backup/database_backup/16"
+    "/mnt/c/Users/Administrator/Desktop/Radiant_ERP_Backup/database_backup"
     "$SCRIPT_DIR/../../sites/$TARGET_SITE/private/backups"
     "/home/administrator/v16-bench/sites/v16.local/private/backups"
     "/home/administrator/frappe-bench/sites/akatech.local/private/backups"
     "${BACKUP_DIR:-}"
-    "/mnt/c/Users/Administrator/Desktop/Radiant_ERP_Backup/database_backup/new"
 )
 
 for d in "${SEARCH_DIRS[@]}"; do
     if [ -n "$d" ] && [ -d "$d" ]; then
-        LATEST="$(ls -t "$d"/*-database.sql.gz 2>/dev/null | head -1 || true)"
+        LATEST="$(ls -t "$d"/*/*-database.sql.gz "$d"/*-database.sql.gz 2>/dev/null | head -1 || true)"
         if [ -n "$LATEST" ] && [ -f "$LATEST" ]; then
             BACKUP_FILE="$LATEST"
             break
