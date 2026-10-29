@@ -19,7 +19,7 @@ def _count(doctype, filters):
     if not _can(doctype):
         return None
     try:
-        return len(frappe.get_list(doctype, filters=filters, fields=["name"], limit_page_length=0, as_list=True))
+        return frappe.db.count(doctype, filters=filters)
     except Exception:
         return None
 
@@ -28,8 +28,8 @@ def _sum(doctype, field, filters):
     if not _can(doctype):
         return None
     try:
-        records = frappe.get_list(doctype, filters=filters, fields=[field], limit_page_length=0, as_list=True)
-        return sum(flt(r[0]) for r in records if r and r[0] is not None)
+        records = frappe.get_all(doctype, filters=filters, fields=[field], limit_page_length=0)
+        return sum(flt(r.get(field)) for r in records if r and r.get(field) is not None)
     except Exception:
         return None
 
@@ -124,32 +124,42 @@ def _specs():
         },
         "projects": {
             "title": "Projects Pulse",
-            "subtitle": "Delivery tracker",
+            "subtitle": "Active delivery projects and client engagements",
             "kpis": [
-                ("Open Projects", "Project", "n", None, {"status": "Open"}, "num", "#6366f1", "project"),
-                ("Open Tasks", "Task", "n", None, {"status": ["in", ["Open", "Working", "Pending Review"]]}, "num", "#f59e0b", "task"),
-                ("Overdue Tasks", "Task", "n", None, {"status": ["not in", ["Completed", "Cancelled"]], "exp_end_date": ["<", today()]}, "num", "#f43f5e", "task"),
-                ("Completed Tasks", "Task", "n", None, {"status": "Completed"}, "num", "#10b981", "task"),
+                ("Active Projects", "Project", "n", None, {"status": "Open"}, "num", "#6366f1", "project"),
+                ("Total Projects", "Project", "n", None, {"docstatus": ["!=", 2]}, "num", "#0ea5e9", "project"),
+                ("Project Types", "Project Type", "n", None, {}, "num", "#f59e0b", "project-type"),
+                ("Completed Projects", "Project", "n", None, {"status": "Completed"}, "num", "#10b981", "project"),
             ],
         },
         "assets": {
             "title": "Assets Pulse",
-            "subtitle": "Fixed asset overview",
+            "subtitle": "Fixed assets, capital value and lifecycle",
             "kpis": [
-                ("Total Assets", "Asset", "n", None, {"docstatus": 1}, "num", "#6366f1", "asset"),
-                ("Draft Assets", "Asset", "n", None, {"docstatus": 0}, "num", "#94a3b8", "asset"),
+                ("Active Assets", "Asset", "n", None, {"docstatus": 1}, "num", "#6366f1", "asset"),
                 ("Asset Value", "Asset", "s", "gross_purchase_amount", {"docstatus": 1}, "money", "#10b981", "asset"),
-                ("Maintenance Logs", "Asset Maintenance Log", "n", None, {"maintenance_status": ["in", ["Planned", "Overdue"]]}, "num", "#f59e0b", "asset-maintenance-log"),
+                ("In Service", "Asset", "n", None, {"docstatus": 1, "status": "Partially Depreciated"}, "num", "#0ea5e9", "asset"),
+                ("Asset Categories", "Asset Category", "n", None, {}, "num", "#f59e0b", "asset-category"),
             ],
         },
         "manufacturing": {
-            "title": "Production Pulse",
-            "subtitle": "Work orders and BOMs",
+            "title": "Operations & Catalog Pulse",
+            "subtitle": "Stock inventory, catalog items and order tracking",
             "kpis": [
-                ("Open Work Orders", "Work Order", "n", None, {"docstatus": 1, "status": ["in", ["Not Started", "In Process"]]}, "num", "#6366f1", "work-order"),
-                ("Active BOMs", "BOM", "n", None, {"docstatus": 1, "is_active": 1}, "num", "#0ea5e9", "bom"),
-                ("Draft Work Orders", "Work Order", "n", None, {"docstatus": 0}, "num", "#94a3b8", "work-order"),
-                ("Completed Orders", "Work Order", "n", None, {"docstatus": 1, "status": "Completed"}, "num", "#10b981", "work-order"),
+                ("Active Stock Items", "Item", "n", None, {"is_stock_item": 1, "disabled": 0}, "num", "#10b981", "item"),
+                ("Total Catalog Items", "Item", "n", None, {"disabled": 0}, "num", "#6366f1", "item"),
+                ("Service Items", "Item", "n", None, {"is_stock_item": 0, "disabled": 0}, "num", "#0ea5e9", "item"),
+                ("Open Work Orders", "Work Order", "n", None, {"docstatus": 1, "status": ["in", ["Not Started", "In Process"]]}, "num", "#f59e0b", "work-order"),
+            ],
+        },
+        "quality": {
+            "title": "Quality Pulse",
+            "subtitle": "Inspections, quality assurance and verification",
+            "kpis": [
+                ("Total Inspections", "Quality Inspection", "n", None, {"docstatus": 1}, "num", "#6366f1", "quality-inspection"),
+                ("Incoming Inspections", "Quality Inspection", "n", None, {"docstatus": 1, "inspection_type": "Incoming"}, "num", "#0ea5e9", "quality-inspection"),
+                ("Outgoing Inspections", "Quality Inspection", "n", None, {"docstatus": 1, "inspection_type": "Outgoing"}, "num", "#10b981", "quality-inspection"),
+                ("Accepted Inspections", "Quality Inspection", "n", None, {"docstatus": 1, "status": "Accepted"}, "num", "#f59e0b", "quality-inspection"),
             ],
         },
     }
@@ -162,13 +172,14 @@ WORKSPACE_MAP = {
     "accounts": "accounts", "accounting": "accounts", "financial-reports": "accounts", "finance": "accounts",
     "payables": "accounts", "receivables": "accounts", "kodessy-accounting": "accounts", "kodessy-accounts": "accounts",
     "stock": "stock", "inventory": "stock", "inventory-department": "stock", "aka-stock": "stock",
-    "assets": "assets", "fixed-assets": "assets", "asset": "assets",
-    "manufacturing": "manufacturing", "production": "manufacturing",
+    "assets": "assets", "fixed-assets": "assets", "asset": "assets", "aka-assets": "assets",
+    "manufacturing": "manufacturing", "production": "manufacturing", "aka-manufacturing": "manufacturing",
+    "quality": "quality", "quality-management": "quality", "quality-inspection": "quality", "aka-quality": "quality",
     "hr": "hr", "aka-hr": "hr", "rm-hr": "hr", "leaves": "hr", "recruitment": "hr",
     "performance": "hr", "shift-&-attendance": "hr", "employee-lifecycle": "hr", "hrms": "hr",
     "payroll": "payroll", "aka-payroll": "payroll", "rm-payroll": "payroll",
     "salary-payout": "payroll", "tax-&-benefits": "payroll",
-    "projects": "projects", "project": "projects",
+    "projects": "projects", "project": "projects", "aka-projects": "projects", "aka-project": "projects",
     "crm": "crm",
 }
 

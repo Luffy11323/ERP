@@ -43,6 +43,13 @@
   const API = "akatech_erp.premium_api.";
   const EMP_KEY = "aka_view_as_employee";
 
+  const KNOWN_SLUGS = [
+    "home", "selling", "sales", "buying", "procurement", "stock", "inventory",
+    "assets", "asset", "fixed-assets", "accounts", "accounting", "finance",
+    "hr", "hrms", "payroll", "crm", "projects", "project",
+    "manufacturing", "production", "quality", "quality-management", "quality-inspection"
+  ];
+
   function slugFromPath() {
     // 1. Check router route if available
     if (window.frappe && frappe.get_route) {
@@ -51,8 +58,8 @@
         if (["Form", "List", "Tree", "query-report", "view"].includes(r[0])) return null;
         const rLower = r.map(x => String(x).toLowerCase());
         if (rLower.includes("home")) return "home";
-        for (let s of ["selling", "buying", "stock", "assets", "accounts", "hr", "payroll", "crm", "projects", "manufacturing", "procurement", "sales"]) {
-          if (rLower.includes(s)) return s;
+        for (let s of KNOWN_SLUGS) {
+          if (rLower.some(x => x === s || x.replace(/-/g, "") === s.replace(/-/g, ""))) return s;
         }
       }
     }
@@ -62,13 +69,13 @@
       return null;
     }
     if (pathname.includes("home")) return "home";
-    for (let s of ["selling", "buying", "stock", "assets", "accounts", "hr", "payroll", "crm", "projects", "manufacturing", "procurement", "sales"]) {
-      if (pathname.includes("/" + s)) return s;
+    for (let s of KNOWN_SLUGS) {
+      if (pathname.includes("/" + s) || pathname.includes(s)) return s;
     }
     // 3. Check hash
     const hash = decodeURIComponent(window.location.hash || "").toLowerCase();
     if (hash.includes("home")) return "home";
-    for (let s of ["selling", "buying", "stock", "assets", "accounts", "hr", "payroll", "crm", "projects", "manufacturing", "procurement", "sales"]) {
+    for (let s of KNOWN_SLUGS) {
       if (hash.includes(s)) return s;
     }
     return null;
@@ -321,7 +328,8 @@
 
   function renderHero(card, $main, slug) {
     $(".aka-hero, .aka-ledger, .aka-home-wrapper, .aka-fin-wrapper, .aka-home-container").remove();
-    $main.find("#editorjs").show();
+    // Hide empty generic workspace editor blocks so only populated pulse cards remain
+    $main.find("#editorjs").hide();
     let head = `<h3>${greeting()}, ${esc(card.user)} 👋</h3><div class="aka-sub">${esc(card.title)} — ${esc(card.subtitle)}</div>`;
     const kp = card.kpis && card.kpis.length ? `<div class="aka-kpis">${card.kpis.map(kpiHtml).join("")}</div>` : "";
     const $hero = $(`<div class="aka-hero" data-slug="${esc(slug)}"><div class="aka-head"><div>${head}</div></div>${kp}</div>`);
