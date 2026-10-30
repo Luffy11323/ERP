@@ -167,15 +167,15 @@ done
 # Auto-detect target site if not specified
 if [ -z "$TARGET_SITE" ]; then
     if [ -n "$BENCH_DIR" ]; then
-        if [ -d "$BENCH_DIR/sites/v16.local" ] && [[ "$BENCH_DIR" == *"v16-bench"* ]]; then
+        if [ -d "$BENCH_DIR/sites/v16.local" ]; then
             TARGET_SITE="v16.local"
         elif [ -d "$BENCH_DIR/sites/akatech.local" ]; then
             TARGET_SITE="akatech.local"
         else
-            TARGET_SITE="$(ls -d "$BENCH_DIR/sites"/*/ 2>/dev/null | grep -v 'assets' | head -1 | xargs -n1 basename || echo 'akatech.local')"
+            TARGET_SITE="$(ls -d "$BENCH_DIR/sites"/*/ 2>/dev/null | grep -v 'assets' | head -1 | xargs -n1 basename || echo 'v16.local')"
         fi
     else
-        TARGET_SITE="akatech.local"
+        TARGET_SITE="v16.local"
     fi
 fi
 export FRAPPE_SITE="$TARGET_SITE"
