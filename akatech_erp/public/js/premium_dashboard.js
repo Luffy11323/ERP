@@ -263,8 +263,8 @@
       $main.prepend($elem);
     }
 
-    // Hide generic empty company blocks on Home
-    $main.find("#editorjs").hide();
+    // Keep workspace editorjs visible (so reports, shortcuts and workspace blocks remain intact)
+    $main.find("#editorjs").show();
 
     $elem.find("#aka-home-checkin-btn").on("click", async function () {
       const $btn = $(this);
@@ -332,8 +332,8 @@
 
   function renderHero(card, $main, slug) {
     clearMountedCards();
-    // Hide empty generic workspace editor blocks so only populated pulse cards remain
-    $main.find("#editorjs").hide();
+    // Keep workspace editorjs visible so all standard and custom reports remain accessible
+    $main.find("#editorjs").show();
     let head = `<h3>${greeting()}, ${esc(card.user)} 👋</h3><div class="aka-sub">${esc(card.title)} — ${esc(card.subtitle)}</div>`;
     const kp = card.kpis && card.kpis.length ? `<div class="aka-kpis">${card.kpis.map(kpiHtml).join("")}</div>` : "";
     const $hero = $(`<div class="aka-hero" data-slug="${esc(slug)}"><div class="aka-head"><div>${head}</div></div>${kp}</div>`);
